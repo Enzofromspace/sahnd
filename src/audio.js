@@ -54,22 +54,18 @@ class AudioManager {
     
     // Drone sequence - sustained low notes (wind)
     const droneSeq = new Tone.Sequence((time, note) => {
-      if (this.backgroundEnabled) {
-        droneSynth.triggerAttackRelease(note, '2n', time);
-      }
+      droneSynth.triggerAttackRelease(note, '2n', time);
     }, ['C2', 'D2', 'C2', 'Eb2'], '2n');
     
     // Melody sequence - desert pentatonic theme
     // Using pentatonic scale: C, D, E, G, A (evokes desert/middle eastern feel)
     const melodySeq = new Tone.Sequence((time, note) => {
-      if (this.backgroundEnabled) {
-        melodySynth.triggerAttackRelease(note, '8n', time);
-      }
+      melodySynth.triggerAttackRelease(note, '8n', time);
     }, ['C4', 'D4', 'E4', 'G4', 'A4', 'G4', 'E4', 'D4', 'C4', 'D4', 'E4', 'G4', 'A4', 'C5', 'A4', 'G4'], '8n');
     
     // Percussion sequence - subtle sand shifting sounds
     const percSeq = new Tone.Sequence((time, note) => {
-      if (this.backgroundEnabled && Math.random() > 0.7) {
+      if (note && Math.random() > 0.7) {
         percSynth.triggerAttackRelease(note, '16n', time);
       }
     }, ['C3', null, 'D3', null, 'C3', null, 'Eb3', null], '4n');

@@ -11,7 +11,24 @@ class SandSimulation {
     this.grid = [];
     this.nextGrid = [];
     
+    // Current sand color (default blue)
+    this.sandColor = { r: 0, g: 100, b: 255 };
+    
     this.initGrids();
+  }
+  
+  setColor(hexColor) {
+    // Convert hex to RGB
+    const hex = hexColor.replace('#', '');
+    this.sandColor = {
+      r: parseInt(hex.substring(0, 2), 16),
+      g: parseInt(hex.substring(2, 4), 16),
+      b: parseInt(hex.substring(4, 6), 16)
+    };
+  }
+  
+  getColor() {
+    return this.sandColor;
   }
   
   initGrids() {
@@ -237,7 +254,7 @@ class SandSimulation {
   
   // Render sand particles with spacing for see-through effect
   render() {
-    fill(0, 100, 255); // Blue sand (RGB)
+    fill(this.sandColor.r, this.sandColor.g, this.sandColor.b);
     noStroke();
     
     // Particle size is smaller than cell size to create spacing

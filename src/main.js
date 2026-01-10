@@ -135,6 +135,56 @@ function setupUI() {
       audioToggle.textContent = `Audio: ${audioManager.isBackgroundEnabled() ? 'ON' : 'OFF'}`;
     }
   });
+  
+  // Color picker controls
+  const colorPicker = document.getElementById('color-picker');
+  const colorHex = document.getElementById('color-hex');
+  const applyColorBtn = document.getElementById('apply-color');
+  
+  // Sync color picker and hex input
+  colorPicker.addEventListener('input', (e) => {
+    colorHex.value = e.target.value.toUpperCase();
+  });
+  
+  colorHex.addEventListener('input', (e) => {
+    const hex = e.target.value;
+    if (/^#[0-9A-Fa-f]{6}$/.test(hex)) {
+      colorPicker.value = hex;
+    }
+  });
+  
+  // Apply color button
+  applyColorBtn.addEventListener('click', () => {
+    const hexValue = colorHex.value || colorPicker.value;
+    if (/^#[0-9A-Fa-f]{6}$/.test(hexValue)) {
+      if (sandSim) {
+        sandSim.setColor(hexValue);
+      }
+    } else {
+      // Invalid hex, reset to current color
+      const currentColor = sandSim.getColor();
+      const hex = '#' + 
+        currentColor.r.toString(16).padStart(2, '0') +
+        currentColor.g.toString(16).padStart(2, '0') +
+        currentColor.b.toString(16).padStart(2, '0');
+      colorHex.value = hex.toUpperCase();
+      colorPicker.value = hex;
+    }
+  });
+  
+  // Apply color on Enter key in hex input
+  colorHex.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+      applyColorBtn.click();
+    }
+  });
+  
+  // Auto-apply color when color picker changes (optional - for instant feedback)
+  colorPicker.addEventListener('change', (e) => {
+    if (sandSim) {
+      sandSim.setColor(e.target.value);
+    }
+  });
 }
 
 function updateCursor(toolName) {
