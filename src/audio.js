@@ -3,39 +3,91 @@ class AudioManager {
   constructor() {
     this.backgroundEnabled = true;
     this.sfxEnabled = true;
-    this.synth = null;
-    this.sequence = null;
+    this.synths = [];
+    this.sequences = [];
     this.hasStarted = false;
   }
   
   init() {
-    // Initialize Tone.js synth for 8-bit style music
-    this.synth = new Tone.Synth({
+    // Desert-inspired ambient theme with multiple layers
+    
+    // Layer 1: Low drone (desert wind)
+    const droneSynth = new Tone.Synth({
+      oscillator: {
+        type: 'sawtooth'
+      },
+      envelope: {
+        attack: 2,
+        decay: 1,
+        sustain: 0.7,
+        release: 3
+      }
+    }).connect(new Tone.Volume(-12)).toDestination();
+    
+    // Layer 2: Melodic desert theme (pentatonic scale - common in desert music)
+    const melodySynth = new Tone.Synth({
       oscillator: {
         type: 'square'
       },
       envelope: {
+        attack: 0.05,
+        decay: 0.2,
+        sustain: 0.4,
+        release: 0.3
+      }
+    }).connect(new Tone.Volume(-8)).toDestination();
+    
+    // Layer 3: Percussive element (sand shifting)
+    const percSynth = new Tone.Synth({
+      oscillator: {
+        type: 'triangle'
+      },
+      envelope: {
         attack: 0.01,
-        decay: 0.1,
-        sustain: 0.3,
-        release: 0.1
+        decay: 0.3,
+        sustain: 0,
+        release: 0.2
       }
-    }).toDestination();
+    }).connect(new Tone.Volume(-10)).toDestination();
     
-    // Create a simple 8-bit style loop
-    this.sequence = new Tone.Sequence((time, note) => {
+    this.synths = [droneSynth, melodySynth, percSynth];
+    
+    // Drone sequence - sustained low notes (wind)
+    const droneSeq = new Tone.Sequence((time, note) => {
       if (this.backgroundEnabled) {
-        this.synth.triggerAttackRelease(note, '8n', time);
+        droneSynth.triggerAttackRelease(note, '2n', time);
       }
-    }, ['C4', 'E4', 'G4', 'C5', 'G4', 'E4', 'C4', 'G3'], '4n');
+    }, ['C2', 'D2', 'C2', 'Eb2'], '2n');
     
-    this.sequence.loop = true;
+    // Melody sequence - desert pentatonic theme
+    // Using pentatonic scale: C, D, E, G, A (evokes desert/middle eastern feel)
+    const melodySeq = new Tone.Sequence((time, note) => {
+      if (this.backgroundEnabled) {
+        melodySynth.triggerAttackRelease(note, '8n', time);
+      }
+    }, ['C4', 'D4', 'E4', 'G4', 'A4', 'G4', 'E4', 'D4', 'C4', 'D4', 'E4', 'G4', 'A4', 'C5', 'A4', 'G4'], '8n');
+    
+    // Percussion sequence - subtle sand shifting sounds
+    const percSeq = new Tone.Sequence((time, note) => {
+      if (this.backgroundEnabled && Math.random() > 0.7) {
+        percSynth.triggerAttackRelease(note, '16n', time);
+      }
+    }, ['C3', null, 'D3', null, 'C3', null, 'Eb3', null], '4n');
+    
+    this.sequences = [droneSeq, melodySeq, percSeq];
+    
+    // Set all sequences to loop
+    this.sequences.forEach(seq => {
+      seq.loop = true;
+    });
   }
   
   start() {
     if (!this.hasStarted && this.backgroundEnabled) {
       Tone.start();
-      this.sequence.start(0);
+      this.sequences.forEach(seq => {
+        seq.start(0);
+      });
       this.hasStarted = true;
     }
   }
@@ -44,10 +96,10 @@ class AudioManager {
     this.backgroundEnabled = !this.backgroundEnabled;
     if (this.backgroundEnabled && !this.hasStarted) {
       this.start();
-    } else if (!this.backgroundEnabled && this.sequence) {
-      this.sequence.stop();
-    } else if (this.backgroundEnabled && this.sequence) {
-      this.sequence.start(0);
+    } else if (!this.backgroundEnabled && this.sequences.length > 0) {
+      this.sequences.forEach(seq => seq.stop());
+    } else if (this.backgroundEnabled && this.sequences.length > 0) {
+      this.sequences.forEach(seq => seq.start(0));
     }
   }
   
@@ -62,16 +114,16 @@ class AudioManager {
     
     switch (toolName) {
       case 'stick':
-        // High, quick tick sound
-        soundParams = [0.1, , 800, 0.01, 0.01, 0.1, , 0.5, , , , , , 0.1];
+        // Drawing in sand - light scraping sound
+        soundParams = [0.15, , 600, 0.02, 0.05, 0.15, , 0.3, , , , , , 0.1];
         break;
       case 'finger':
-        // Medium, smearing sound
-        soundParams = [0.2, , 400, 0.05, 0.1, 0.2, , 0.3, , , , , , 0.2];
+        // Smearing sand - soft whoosh/rustle
+        soundParams = [0.25, , 300, 0.1, 0.15, 0.25, , 0.2, , , , , , 0.25];
         break;
       case 'trowel':
-        // Lower, digging sound
-        soundParams = [0.3, , 200, 0.1, 0.2, 0.3, , 0.4, , , , , , 0.3];
+        // Digging - deeper scraping/digging sound
+        soundParams = [0.35, , 150, 0.15, 0.2, 0.35, , 0.5, , , , , , 0.3];
         break;
       default:
         return;

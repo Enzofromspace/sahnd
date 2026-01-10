@@ -9,13 +9,24 @@ let canvasHeight = 600;
 
 function preload() {
   // Load background pyramids image
-  backgroundImage = loadImage('assets/pyramids.png', 
-    (img) => { 
-      // Only use image if it's large enough (not placeholder)
-      backgroundImageLoaded = img.width > 100 && img.height > 100;
-    },
-    () => { backgroundImageLoaded = false; }
-  );
+  try {
+    backgroundImage = loadImage('assets/pyramids.png', 
+      (img) => { 
+        // Only use image if it's large enough (not placeholder)
+        if (img && img.width > 100 && img.height > 100) {
+          backgroundImageLoaded = true;
+        } else {
+          backgroundImageLoaded = false;
+        }
+      },
+      () => { 
+        // Error loading image
+        backgroundImageLoaded = false;
+      }
+    );
+  } catch (e) {
+    backgroundImageLoaded = false;
+  }
 }
 
 function drawPyramids() {
@@ -48,11 +59,11 @@ function drawPyramids() {
 
 function setup() {
   const container = document.getElementById('canvas-container');
-  const containerWidth = container.clientWidth;
-  const containerHeight = container.clientHeight;
+  const containerWidth = container ? container.clientWidth : window.innerWidth - 40;
+  const containerHeight = container ? container.clientHeight : window.innerHeight - 200;
   
-  canvasWidth = Math.min(containerWidth - 20, 1200);
-  canvasHeight = Math.min(containerHeight - 20, 800);
+  canvasWidth = Math.max(400, Math.min(containerWidth - 20, 1200));
+  canvasHeight = Math.max(300, Math.min(containerHeight - 20, 800));
   
   const canvas = createCanvas(canvasWidth, canvasHeight);
   canvas.parent('canvas-container');
@@ -66,14 +77,6 @@ function setup() {
   // Setup UI event listeners
   setupUI();
   
-  // Setup canvas interaction
-  canvas.mousePressed(handleMousePressed);
-  canvas.mouseDragged(handleMouseDragged);
-  canvas.mouseReleased(handleMouseReleased);
-  canvas.touchStarted(handleTouchStarted);
-  canvas.touchMoved(handleTouchMoved);
-  canvas.touchEnded(handleTouchEnded);
-  
   // Start audio after first user interaction
   document.addEventListener('click', () => {
     audioManager.start();
@@ -85,11 +88,18 @@ function setup() {
 }
 
 function setupUI() {
-  // Tool selector
+  // Tool selector - set initial tool
   const toolRadios = document.querySelectorAll('input[name="tool"]');
+  const checkedTool = document.querySelector('input[name="tool"]:checked');
+  if (checkedTool && toolManager) {
+    toolManager.setTool(checkedTool.value);
+  }
+  
   toolRadios.forEach(radio => {
     radio.addEventListener('change', () => {
-      toolManager.setTool(radio.value);
+      if (toolManager) {
+        toolManager.setTool(radio.value);
+      }
     });
   });
   
@@ -114,47 +124,70 @@ function setupUI() {
 function draw() {
   // Layer 1: Immutable Background (pyramids)
   background(0);
-  if (backgroundImageLoaded && backgroundImage) {
+  
+  // Check if image is loaded and valid
+  if (backgroundImage && backgroundImage.width > 100 && backgroundImage.height > 100) {
     image(backgroundImage, 0, 0, canvasWidth, canvasHeight);
   } else {
     drawPyramids();
   }
   
   // Update sand physics
-  sandSim.update();
+  if (sandSim) {
+    sandSim.update();
+    
+    // Layer 2: Sand Simulation
+    sandSim.render();
+  }
+}
+
+// p5.js global event handlers
+function mousePressed() {
+  // Start audio on first interaction
+  if (audioManager && !audioManager.hasStarted) {
+    audioManager.start();
+  }
   
-  // Layer 2: Sand Simulation
-  sandSim.render();
+  if (toolManager) {
+    toolManager.start(mouseX, mouseY);
+  }
 }
 
-function handleMousePressed() {
-  toolManager.start(mouseX, mouseY);
+function mouseDragged() {
+  if (toolManager) {
+    toolManager.move(mouseX, mouseY);
+  }
 }
 
-function handleMouseDragged() {
-  toolManager.move(mouseX, mouseY);
+function mouseReleased() {
+  if (toolManager) {
+    toolManager.end();
+  }
 }
 
-function handleMouseReleased() {
-  toolManager.end();
-}
-
-function handleTouchStarted(e) {
-  e.preventDefault();
-  if (touches.length > 0) {
+function touchStarted() {
+  // Start audio on first interaction
+  if (audioManager && !audioManager.hasStarted) {
+    audioManager.start();
+  }
+  
+  if (toolManager && touches.length > 0) {
     toolManager.start(touches[0].x, touches[0].y);
   }
+  return false; // Prevent default
 }
 
-function handleTouchMoved(e) {
-  e.preventDefault();
-  if (touches.length > 0) {
+function touchMoved() {
+  if (toolManager && touches.length > 0) {
     toolManager.move(touches[0].x, touches[0].y);
   }
+  return false; // Prevent default
 }
 
-function handleTouchEnded(e) {
-  e.preventDefault();
-  toolManager.end();
+function touchEnded() {
+  if (toolManager) {
+    toolManager.end();
+  }
+  return false; // Prevent default
 }
 

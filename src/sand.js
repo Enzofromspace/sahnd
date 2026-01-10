@@ -221,7 +221,7 @@ class SandSimulation {
   
   // Render sand particles
   render() {
-    fill(0, 100, 255); // Blue sand
+    fill(0, 100, 255); // Blue sand (RGB)
     noStroke();
     
     for (let y = 0; y < this.rows; y++) {
