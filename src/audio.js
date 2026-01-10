@@ -83,23 +83,62 @@ class AudioManager {
   }
   
   start() {
-    if (!this.hasStarted && this.backgroundEnabled) {
-      Tone.start();
-      this.sequences.forEach(seq => {
-        seq.start(0);
-      });
+    if (this.backgroundEnabled) {
+      // Start Tone.js audio context if not already started
+      if (Tone.context.state !== 'running') {
+        Tone.start().then(() => {
+          this.startSequences();
+        }).catch(err => {
+          console.error('Audio start error:', err);
+          // Try to start sequences anyway
+          this.startSequences();
+        });
+      } else {
+        // Audio context already running, just start sequences
+        this.startSequences();
+      }
+    }
+  }
+  
+  startSequences() {
+    if (this.sequences.length > 0 && this.backgroundEnabled) {
+      // Stop sequences first to ensure clean restart
+      this.sequences.forEach(seq => seq.stop());
+      // Small delay to ensure clean restart
+      setTimeout(() => {
+        this.sequences.forEach(seq => {
+          seq.start(0);
+        });
+      }, 10);
       this.hasStarted = true;
+    }
+  }
+  
+  stopSequences() {
+    if (this.sequences.length > 0) {
+      this.sequences.forEach(seq => seq.stop());
     }
   }
   
   toggleBackground() {
     this.backgroundEnabled = !this.backgroundEnabled;
-    if (this.backgroundEnabled && !this.hasStarted) {
-      this.start();
-    } else if (!this.backgroundEnabled && this.sequences.length > 0) {
-      this.sequences.forEach(seq => seq.stop());
-    } else if (this.backgroundEnabled && this.sequences.length > 0) {
-      this.sequences.forEach(seq => seq.start(0));
+    
+    if (this.backgroundEnabled) {
+      // Turn audio on
+      if (!this.hasStarted) {
+        // First time starting
+        this.start();
+      } else {
+        // Restart sequences if they were stopped
+        if (Tone.context.state === 'running') {
+          this.startSequences();
+        } else {
+          this.start();
+        }
+      }
+    } else {
+      // Turn audio off
+      this.stopSequences();
     }
   }
   

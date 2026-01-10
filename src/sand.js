@@ -27,6 +27,22 @@ class SandSimulation {
   
   reset() {
     this.initGrids();
+    this.fillToPercentage(0.3); // Fill 30% of screen by default
+  }
+  
+  // Fill sand to a percentage of the screen
+  fillToPercentage(percentage) {
+    const totalCells = this.cols * this.rows;
+    const targetCells = Math.floor(totalCells * percentage);
+    let filledCells = 0;
+    
+    // Fill from bottom up, creating a natural sand pile
+    for (let y = this.rows - 1; y >= 0 && filledCells < targetCells; y--) {
+      for (let x = 0; x < this.cols && filledCells < targetCells; x++) {
+        this.grid[y][x] = 1;
+        filledCells++;
+      }
+    }
   }
   
   worldToGrid(x, y) {
@@ -219,15 +235,26 @@ class SandSimulation {
     this.nextGrid = temp;
   }
   
-  // Render sand particles
+  // Render sand particles with spacing for see-through effect
   render() {
     fill(0, 100, 255); // Blue sand (RGB)
     noStroke();
     
+    // Particle size is smaller than cell size to create spacing
+    // This creates gaps between particles even when stacked
+    const particleSize = this.cellSize * 0.7; // 70% of cell size
+    const offset = (this.cellSize - particleSize) / 2; // Center particles in cells
+    
     for (let y = 0; y < this.rows; y++) {
       for (let x = 0; x < this.cols; x++) {
         if (this.grid[y][x] === 1) {
-          rect(x * this.cellSize, y * this.cellSize, this.cellSize, this.cellSize);
+          // Draw particle smaller than cell, centered in cell
+          rect(
+            x * this.cellSize + offset, 
+            y * this.cellSize + offset, 
+            particleSize, 
+            particleSize
+          );
         }
       }
     }

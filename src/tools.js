@@ -60,24 +60,22 @@ class ToolManager {
     }
   }
   
-  // Stick: Fine, precise lines - places sand
+  // Stick: Fine, precise lines - places sand with slim width
   applyStick(x, y, isStart) {
     if (isStart) {
       this.audioManager.playToolSound('stick');
     }
-    this.sandSim.addSand(x, y, 3, 0.8);
+    // Slim fine width for precise drawing
+    this.sandSim.addSand(x, y, 2, 0.9);
   }
   
-  // Finger: Wide, smearing motion - pushes sand laterally
+  // Finger: Wide drawing tool - draws on existing sand with wide width
   applyFinger(x, y, isStart) {
     if (isStart) {
       this.audioManager.playToolSound('finger');
     }
-    
-    if (this.lastX !== x || this.lastY !== y) {
-      const angle = Math.atan2(y - this.lastY, x - this.lastX);
-      this.sandSim.pushSand(x, y, 8, angle, 0.4);
-    }
+    // Wide width for drawing on sand
+    this.sandSim.addSand(x, y, 12, 0.85);
   }
   
   // Trowel: Digging tool - removes or displaces sand downward

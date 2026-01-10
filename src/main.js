@@ -70,12 +70,22 @@ function setup() {
   
   // Initialize systems
   sandSim = new SandSimulation(canvasWidth, canvasHeight, 2);
+  // Fill sand to 30% of screen by default
+  sandSim.fillToPercentage(0.3);
   audioManager = new AudioManager();
   audioManager.init();
   toolManager = new ToolManager(sandSim, audioManager);
   
   // Setup UI event listeners
   setupUI();
+  
+  // Set initial cursor
+  setTimeout(() => {
+    const checkedTool = document.querySelector('input[name="tool"]:checked');
+    if (checkedTool) {
+      updateCursor(checkedTool.value);
+    }
+  }, 100);
   
   // Start audio after first user interaction
   document.addEventListener('click', () => {
@@ -93,19 +103,23 @@ function setupUI() {
   const checkedTool = document.querySelector('input[name="tool"]:checked');
   if (checkedTool && toolManager) {
     toolManager.setTool(checkedTool.value);
+    updateCursor(checkedTool.value);
   }
   
   toolRadios.forEach(radio => {
     radio.addEventListener('change', () => {
       if (toolManager) {
         toolManager.setTool(radio.value);
+        updateCursor(radio.value);
       }
     });
   });
   
   // Reset button
   document.getElementById('reset-btn').addEventListener('click', () => {
-    sandSim.reset();
+    if (sandSim) {
+      sandSim.reset();
+    }
   });
   
   // Save button
@@ -116,9 +130,54 @@ function setupUI() {
   // Audio toggle
   const audioToggle = document.getElementById('audio-toggle');
   audioToggle.addEventListener('click', () => {
-    audioManager.toggleBackground();
-    audioToggle.textContent = `Audio: ${audioManager.isBackgroundEnabled() ? 'ON' : 'OFF'}`;
+    if (audioManager) {
+      audioManager.toggleBackground();
+      audioToggle.textContent = `Audio: ${audioManager.isBackgroundEnabled() ? 'ON' : 'OFF'}`;
+    }
   });
+}
+
+function updateCursor(toolName) {
+  const canvas = document.querySelector('#canvas-container canvas');
+  if (!canvas) return;
+  
+  if (toolName === 'stick') {
+    // Create custom stick cursor
+    const stickCursor = createStickCursor();
+    canvas.style.cursor = `url(${stickCursor}) 8 2, crosshair`;
+  } else if (toolName === 'finger') {
+    canvas.style.cursor = 'default';
+  } else {
+    canvas.style.cursor = 'default';
+  }
+}
+
+function createStickCursor() {
+  // Create a simple stick cursor as data URL
+  const canvas = document.createElement('canvas');
+  canvas.width = 16;
+  canvas.height = 16;
+  const ctx = canvas.getContext('2d');
+  
+  // Clear with transparent background
+  ctx.clearRect(0, 0, 16, 16);
+  
+  // Draw a simple stick (vertical line) - brown color
+  ctx.strokeStyle = '#8B4513'; // Brown stick color
+  ctx.lineWidth = 2;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(8, 1);
+  ctx.lineTo(8, 13);
+  ctx.stroke();
+  
+  // Add a small tip/point at the top
+  ctx.fillStyle = '#654321';
+  ctx.beginPath();
+  ctx.arc(8, 1, 1.5, 0, Math.PI * 2);
+  ctx.fill();
+  
+  return canvas.toDataURL();
 }
 
 function draw() {
