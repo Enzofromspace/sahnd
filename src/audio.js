@@ -22,7 +22,7 @@ class AudioManager {
         sustain: 0.7,
         release: 3
       }
-    }).connect(new Tone.Volume(-12)).toDestination();
+    }).connect(new Tone.Volume(-20)).toDestination();
     
     // Layer 2: Melodic desert theme (pentatonic scale - common in desert music)
     const melodySynth = new Tone.Synth({
@@ -35,7 +35,7 @@ class AudioManager {
         sustain: 0.4,
         release: 0.3
       }
-    }).connect(new Tone.Volume(-8)).toDestination();
+    }).connect(new Tone.Volume(-20)).toDestination();
     
     // Layer 3: Percussive element (sand shifting)
     const percSynth = new Tone.Synth({
@@ -48,24 +48,28 @@ class AudioManager {
         sustain: 0,
         release: 0.2
       }
-    }).connect(new Tone.Volume(-10)).toDestination();
+    }).connect(new Tone.Volume(-20)).toDestination();
     
     this.synths = [droneSynth, melodySynth, percSynth];
     
     // Drone sequence - sustained low notes (wind)
     const droneSeq = new Tone.Sequence((time, note) => {
-      droneSynth.triggerAttackRelease(note, '2n', time);
+      if (this.backgroundEnabled) {
+        droneSynth.triggerAttackRelease(note, '2n', time);
+      }
     }, ['C2', 'D2', 'C2', 'Eb2'], '2n');
     
     // Melody sequence - desert pentatonic theme
     // Using pentatonic scale: C, D, E, G, A (evokes desert/middle eastern feel)
     const melodySeq = new Tone.Sequence((time, note) => {
-      melodySynth.triggerAttackRelease(note, '8n', time);
+      if (this.backgroundEnabled) {
+        melodySynth.triggerAttackRelease(note, '8n', time);
+      }
     }, ['C4', 'D4', 'E4', 'G4', 'A4', 'G4', 'E4', 'D4', 'C4', 'D4', 'E4', 'G4', 'A4', 'C5', 'A4', 'G4'], '8n');
     
     // Percussion sequence - subtle sand shifting sounds
     const percSeq = new Tone.Sequence((time, note) => {
-      if (note && Math.random() > 0.7) {
+      if (this.backgroundEnabled && note && Math.random() > 0.7) {
         percSynth.triggerAttackRelease(note, '16n', time);
       }
     }, ['C3', null, 'D3', null, 'C3', null, 'Eb3', null], '4n');
@@ -80,39 +84,76 @@ class AudioManager {
   
   start() {
     if (this.backgroundEnabled) {
-      // Start Tone.js audio context if not already started
-      if (Tone.context.state !== 'running') {
-        Tone.start().then(() => {
-          this.startSequences();
-        }).catch(err => {
-          console.error('Audio start error:', err);
-          // Try to start sequences anyway
-          this.startSequences();
-        });
-      } else {
-        // Audio context already running, just start sequences
-        this.startSequences();
-      }
+      // Start Tone.js audio context
+      Tone.start().then(() => {
+        // Start Transport to enable sequences
+        if (Tone.Transport.state !== 'started') {
+          Tone.Transport.start();
+        }
+        
+        // Start all sequences if not already started
+        if (this.sequences.length > 0) {
+          this.sequences.forEach(seq => {
+            if (seq.state !== 'started') {
+              seq.start(0);
+            }
+          });
+        }
+        
+        this.hasStarted = true;
+        console.log('Audio started successfully');
+      }).catch(err => {
+        console.error('Audio start error:', err);
+        // Try to start anyway
+        try {
+          if (Tone.Transport.state !== 'started') {
+            Tone.Transport.start();
+          }
+          this.sequences.forEach(seq => {
+            if (seq.state !== 'started') {
+              seq.start(0);
+            }
+          });
+          this.hasStarted = true;
+        } catch (e) {
+          console.error('Failed to start audio:', e);
+        }
+      });
     }
   }
   
   startSequences() {
     if (this.sequences.length > 0 && this.backgroundEnabled) {
+      // Ensure Transport is running
+      if (Tone.Transport.state !== 'started') {
+        Tone.Transport.start();
+      }
+      
       // Stop sequences first to ensure clean restart
-      this.sequences.forEach(seq => seq.stop());
+      this.sequences.forEach(seq => {
+        if (seq.state === 'started') {
+          seq.stop();
+        }
+      });
+      
       // Small delay to ensure clean restart
       setTimeout(() => {
         this.sequences.forEach(seq => {
           seq.start(0);
         });
-      }, 10);
+      }, 50);
+      
       this.hasStarted = true;
     }
   }
   
   stopSequences() {
     if (this.sequences.length > 0) {
-      this.sequences.forEach(seq => seq.stop());
+      this.sequences.forEach(seq => {
+        if (seq.state === 'started') {
+          seq.stop();
+        }
+      });
     }
   }
   

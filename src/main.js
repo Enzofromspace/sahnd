@@ -253,7 +253,7 @@ function draw() {
 // p5.js global event handlers
 function mousePressed() {
   // Start audio on first interaction
-  if (audioManager && !audioManager.hasStarted) {
+  if (audioManager) {
     audioManager.start();
   }
   
