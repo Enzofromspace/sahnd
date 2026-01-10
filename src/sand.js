@@ -53,10 +53,13 @@ class SandSimulation {
     const targetCells = Math.floor(totalCells * percentage);
     let filledCells = 0;
     
+    // Default blue color for initial fill
+    const defaultColor = { r: 0, g: 100, b: 255 };
+    
     // Fill from bottom up, creating a natural sand pile
     for (let y = this.rows - 1; y >= 0 && filledCells < targetCells; y--) {
       for (let x = 0; x < this.cols && filledCells < targetCells; x++) {
-        this.grid[y][x] = 1;
+        this.grid[y][x] = { ...defaultColor };
         filledCells++;
       }
     }
@@ -85,13 +88,37 @@ class SandSimulation {
     return this.grid[row][col];
   }
   
+  isEmpty(col, row) {
+    const cell = this.getCell(col, row);
+    return cell === 0 || cell === null || cell === undefined;
+  }
+  
+  // Helper to check if cell is empty by direct grid index (for update method)
+  isEmptyByIndex(y, x) {
+    if (y < 0 || y >= this.rows || x < 0 || x >= this.cols) return true;
+    const cell = this.grid[y][x];
+    // Empty if: 0, null, undefined, or not a valid color object
+    if (cell === 0 || cell === null || cell === undefined) return true;
+    // If it's an object, check if it has color properties
+    if (typeof cell === 'object') {
+      return !(cell.r !== undefined && cell.g !== undefined && cell.b !== undefined);
+    }
+    return true;
+  }
+  
   setCell(col, row, value) {
     if (this.isValid(col, row)) {
       this.grid[row][col] = value;
     }
   }
   
-  // Add sand particles in a circular area
+  setCellWithColor(col, row, color) {
+    if (this.isValid(col, row)) {
+      this.grid[row][col] = { ...color };
+    }
+  }
+  
+  // Add sand particles in a circular area with current color
   addSand(centerX, centerY, radius, density = 0.7) {
     const { col: centerCol, row: centerRow } = this.worldToGrid(centerX, centerY);
     const gridRadius = Math.ceil(radius / this.cellSize);
@@ -102,8 +129,9 @@ class SandSimulation {
         if (dist <= gridRadius && Math.random() < density) {
           const col = centerCol + dx;
           const row = centerRow + dy;
-          if (this.isValid(col, row) && this.getCell(col, row) === 0) {
-            this.setCell(col, row, 1);
+          if (this.isValid(col, row) && this.isEmpty(col, row)) {
+            // Use current selected color
+            this.setCellWithColor(col, row, this.sandColor);
           }
         }
       }
@@ -129,7 +157,7 @@ class SandSimulation {
     }
   }
   
-  // Push sand laterally (for Finger tool)
+  // Push sand laterally (for Finger tool) - preserves color
   pushSand(centerX, centerY, radius, angle, strength = 0.3) {
     const { col: centerCol, row: centerRow } = this.worldToGrid(centerX, centerY);
     const gridRadius = Math.ceil(radius / this.cellSize);
@@ -145,26 +173,27 @@ class SandSimulation {
         if (dist <= gridRadius) {
           const col = centerCol + dx;
           const row = centerRow + dy;
-          if (this.isValid(col, row) && this.getCell(col, row) === 1) {
-            particles.push({ col, row, dx, dy, dist });
+          const cell = this.getCell(col, row);
+          if (this.isValid(col, row) && !this.isEmpty(col, row)) {
+            particles.push({ col, row, dx, dy, dist, color: cell });
           }
         }
       }
     }
     
-    // Move particles based on angle
+    // Move particles based on angle, preserving color
     for (const p of particles) {
       const newCol = Math.round(p.col + pushX * (gridRadius - p.dist) / gridRadius);
       const newRow = Math.round(p.row + pushY * (gridRadius - p.dist) / gridRadius);
       
-      if (this.isValid(newCol, newRow) && this.getCell(newCol, newRow) === 0) {
+      if (this.isValid(newCol, newRow) && this.isEmpty(newCol, newRow)) {
         this.setCell(p.col, p.row, 0);
-        this.setCell(newCol, newRow, 1);
+        this.setCellWithColor(newCol, newRow, p.color);
       }
     }
   }
   
-  // Displace sand downward (for Trowel tool)
+  // Displace sand downward (for Trowel tool) - preserves color
   displaceSandDown(centerX, centerY, radius) {
     const { col: centerCol, row: centerRow } = this.worldToGrid(centerX, centerY);
     const gridRadius = Math.ceil(radius / this.cellSize);
@@ -176,30 +205,32 @@ class SandSimulation {
         if (dist <= gridRadius) {
           const col = centerCol + dx;
           const row = centerRow + dy;
+          const cell = this.getCell(col, row);
           
-          if (this.isValid(col, row) && this.getCell(col, row) === 1) {
+          if (this.isValid(col, row) && !this.isEmpty(col, row)) {
             // Try to move down
             const newRow = row + 1;
-            if (this.isValid(col, newRow) && this.getCell(col, newRow) === 0) {
+            if (this.isValid(col, newRow) && this.isEmpty(col, newRow)) {
               this.setCell(col, row, 0);
-              this.setCell(col, newRow, 1);
+              this.setCellWithColor(col, newRow, cell);
             }
             // If can't move straight down, try diagonals
             else {
               const leftCol = col - 1;
               const rightCol = col + 1;
-              const leftEmpty = this.isValid(leftCol, newRow) && this.getCell(leftCol, newRow) === 0;
-              const rightEmpty = this.isValid(rightCol, newRow) && this.getCell(rightCol, newRow) === 0;
+              const leftEmpty = this.isValid(leftCol, newRow) && this.isEmpty(leftCol, newRow);
+              const rightEmpty = this.isValid(rightCol, newRow) && this.isEmpty(rightCol, newRow);
               
               if (leftEmpty && rightEmpty) {
                 this.setCell(col, row, 0);
-                this.setCell(Math.random() < 0.5 ? leftCol : rightCol, newRow, 1);
+                const targetCol = Math.random() < 0.5 ? leftCol : rightCol;
+                this.setCellWithColor(targetCol, newRow, cell);
               } else if (leftEmpty) {
                 this.setCell(col, row, 0);
-                this.setCell(leftCol, newRow, 1);
+                this.setCellWithColor(leftCol, newRow, cell);
               } else if (rightEmpty) {
                 this.setCell(col, row, 0);
-                this.setCell(rightCol, newRow, 1);
+                this.setCellWithColor(rightCol, newRow, cell);
               }
             }
           }
@@ -208,7 +239,7 @@ class SandSimulation {
     }
   }
   
-  // Update sand physics - gravity and settling
+  // Update sand physics - gravity and settling (preserves color)
   update() {
     // Copy current grid to next grid
     for (let y = 0; y < this.rows; y++) {
@@ -220,26 +251,27 @@ class SandSimulation {
     // Process from bottom to top
     for (let y = this.rows - 2; y >= 0; y--) {
       for (let x = 0; x < this.cols; x++) {
-        if (this.grid[y][x] === 1) {
+        const cell = this.grid[y][x];
+        if (!this.isEmptyByIndex(y, x)) {
           // Try to fall straight down
-          if (this.grid[y + 1][x] === 0) {
+          if (this.isEmptyByIndex(y + 1, x)) {
             this.nextGrid[y][x] = 0;
-            this.nextGrid[y + 1][x] = 1;
+            this.nextGrid[y + 1][x] = cell;
           }
           // Try diagonal falls
           else {
-            const leftEmpty = x > 0 && this.grid[y + 1][x - 1] === 0;
-            const rightEmpty = x < this.cols - 1 && this.grid[y + 1][x + 1] === 0;
+            const leftEmpty = x > 0 && this.isEmptyByIndex(y + 1, x - 1);
+            const rightEmpty = x < this.cols - 1 && this.isEmptyByIndex(y + 1, x + 1);
             
             if (leftEmpty && rightEmpty) {
               this.nextGrid[y][x] = 0;
-              this.nextGrid[y + 1][Math.random() < 0.5 ? x - 1 : x + 1] = 1;
+              this.nextGrid[y + 1][Math.random() < 0.5 ? x - 1 : x + 1] = cell;
             } else if (leftEmpty) {
               this.nextGrid[y][x] = 0;
-              this.nextGrid[y + 1][x - 1] = 1;
+              this.nextGrid[y + 1][x - 1] = cell;
             } else if (rightEmpty) {
               this.nextGrid[y][x] = 0;
-              this.nextGrid[y + 1][x + 1] = 1;
+              this.nextGrid[y + 1][x + 1] = cell;
             }
           }
         }
@@ -254,7 +286,6 @@ class SandSimulation {
   
   // Render sand particles with spacing for see-through effect
   render() {
-    fill(this.sandColor.r, this.sandColor.g, this.sandColor.b);
     noStroke();
     
     // Particle size is smaller than cell size to create spacing
@@ -264,7 +295,11 @@ class SandSimulation {
     
     for (let y = 0; y < this.rows; y++) {
       for (let x = 0; x < this.cols; x++) {
-        if (this.grid[y][x] === 1) {
+        const cell = this.grid[y][x];
+        // Check if cell contains a color object (sand particle)
+        if (cell && typeof cell === 'object' && cell.r !== undefined && cell.g !== undefined && cell.b !== undefined) {
+          // Use each particle's stored color
+          fill(cell.r, cell.g, cell.b);
           // Draw particle smaller than cell, centered in cell
           rect(
             x * this.cellSize + offset, 
