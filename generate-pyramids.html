@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Generate Pyramids</title>
+</head>
+<body>
+  <canvas id="canvas" width="800" height="600"></canvas>
+  <br>
+  <button onclick="download()">Download pyramids.png</button>
+  
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    // Black background
+    ctx.fillStyle = '#000000';
+    ctx.fillRect(0, 0, 800, 600);
+    
+    // Draw pyramids
+    ctx.fillStyle = '#1e1e1e';
+    // Pyramid 1
+    ctx.beginPath();
+    ctx.moveTo(50, 550);
+    ctx.lineTo(150, 550);
+    ctx.lineTo(100, 450);
+    ctx.closePath();
+    ctx.fill();
+    
+    // Pyramid 2
+    ctx.beginPath();
+    ctx.moveTo(200, 550);
+    ctx.lineTo(400, 550);
+    ctx.lineTo(300, 350);
+    ctx.closePath();
+    ctx.fill();
+    
+    // Pyramid 3
+    ctx.beginPath();
+    ctx.moveTo(500, 550);
+    ctx.lineTo(700, 550);
+    ctx.lineTo(600, 400);
+    ctx.closePath();
+    ctx.fill();
+    
+    // Add pixel details
+    ctx.fillStyle = '#141414';
+    for (let x = 100; x < 300; x += 20) {
+      for (let y = 450; y < 550; y += 20) {
+        if ((x + y) % 40 < 20) {
+          ctx.fillRect(x, y, 10, 10);
+        }
+      }
+    }
+    
+    function download() {
+      canvas.toBlob((blob) => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'pyramids.png';
+        a.click();
+        URL.revokeObjectURL(url);
+      });
+    }
+  </script>
+</body>
+</html>
+

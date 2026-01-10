@@ -1,0 +1,72 @@
+body {
+  margin: 0;
+  padding: 0;
+  background: #000;
+  overflow: hidden;
+}
+
+#main-window {
+  width: 100vw;
+  height: 100vh;
+  max-width: 100%;
+  max-height: 100%;
+  position: fixed;
+  top: 0;
+  left: 0;
+  margin: 0;
+}
+
+.window-body {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 30px);
+  padding: 10px;
+  background: #c0c0c0;
+}
+
+#canvas-container {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: #000;
+  margin-bottom: 10px;
+  overflow: hidden;
+}
+
+.tool-panel {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  flex-shrink: 0;
+}
+
+.tool-selector {
+  display: flex;
+  gap: 15px;
+  flex-wrap: wrap;
+}
+
+.tool-selector label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+}
+
+.button-group {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.button-group button {
+  white-space: nowrap;
+}
+
+canvas {
+  display: block;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+

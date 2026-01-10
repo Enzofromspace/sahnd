@@ -1,13 +1,73 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>sahnd</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sahnd - Sierra AGI Sand Drawing</title>
+  
+  <!-- XP.css for system-style UI framing -->
+  <link rel="stylesheet" href="https://unpkg.com/xp.css@0.2.3/dist/xp.css">
+  
+  <!-- NES.css for retro UI components -->
+  <link rel="stylesheet" href="https://unpkg.com/nes.css@2.3.0/css/nes.min.css">
+  
+  <!-- Custom UI styles -->
+  <link rel="stylesheet" href="styles/ui.css">
+</head>
+<body>
+  <div class="window" id="main-window">
+    <div class="title-bar">
+      <div class="title-bar-text">Sahnd - Sand Drawing Tool</div>
+      <div class="title-bar-controls">
+        <button aria-label="Minimize"></button>
+        <button aria-label="Maximize"></button>
+        <button aria-label="Close"></button>
+      </div>
+    </div>
+    <div class="window-body">
+      <div id="canvas-container"></div>
+      
+      <div class="tool-panel">
+        <div class="nes-container with-title is-dark">
+          <p class="title">Tools</p>
+          <div class="tool-selector">
+            <label>
+              <input type="radio" class="nes-radio" name="tool" value="stick" checked>
+              <span>Stick</span>
+            </label>
+            <label>
+              <input type="radio" class="nes-radio" name="tool" value="finger">
+              <span>Finger</span>
+            </label>
+            <label>
+              <input type="radio" class="nes-radio" name="tool" value="trowel">
+              <span>Trowel</span>
+            </label>
+          </div>
+        </div>
+        
+        <div class="button-group">
+          <button type="button" class="nes-btn is-primary" id="reset-btn">Reset Sand</button>
+          <button type="button" class="nes-btn is-success" id="save-btn">Save Scene</button>
+          <button type="button" class="nes-btn" id="audio-toggle">Audio: ON</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- p5.js for canvas rendering -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.7.0/p5.min.js"></script>
+  
+  <!-- Tone.js for background music -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+  
+  <!-- ZzFX for sound effects -->
+  <script src="https://cdn.jsdelivr.net/gh/keithclark/ZzFX@master/src/zzfx.js"></script>
+  
+  <!-- Application modules -->
+  <script src="src/audio.js"></script>
+  <script src="src/sand.js"></script>
+  <script src="src/tools.js"></script>
+  <script src="src/main.js"></script>
+</body>
 </html>
