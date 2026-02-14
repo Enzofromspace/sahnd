@@ -1,5 +1,5 @@
-// Tool definitions and behaviors
-class ToolManager {
+// Tool definitions and behaviors.
+export default class ToolManager {
   constructor(sandSim, audioManager) {
     this.sandSim = sandSim;
     this.audioManager = audioManager;
@@ -7,45 +7,50 @@ class ToolManager {
     this.isActive = false;
     this.lastX = 0;
     this.lastY = 0;
+    this.lastMoveAngle = 0;
   }
-  
+
   setTool(toolName) {
     this.currentTool = toolName;
   }
-  
+
   start(x, y) {
     this.isActive = true;
     this.lastX = x;
     this.lastY = y;
     this.applyTool(x, y, true);
   }
-  
+
   move(x, y) {
     if (!this.isActive) return;
-    
-    this.applyTool(x, y, false);
-    
-    // Interpolate between last position and current for smooth drawing
+
     const dx = x - this.lastX;
     const dy = y - this.lastY;
     const dist = Math.sqrt(dx * dx + dy * dy);
+
+    if (dist > 0.001) {
+      this.lastMoveAngle = Math.atan2(dy, dx);
+    }
+
+    this.applyTool(x, y, false);
+
+    // Interpolate between last and current position for smooth tool paths.
     const steps = Math.max(1, Math.floor(dist / 2));
-    
     for (let i = 1; i < steps; i++) {
       const t = i / steps;
       const interpX = this.lastX + dx * t;
       const interpY = this.lastY + dy * t;
       this.applyTool(interpX, interpY, false);
     }
-    
+
     this.lastX = x;
     this.lastY = y;
   }
-  
+
   end() {
     this.isActive = false;
   }
-  
+
   applyTool(x, y, isStart) {
     switch (this.currentTool) {
       case 'stick':
@@ -57,38 +62,34 @@ class ToolManager {
       case 'trowel':
         this.applyTrowel(x, y, isStart);
         break;
+      default:
+        break;
     }
   }
-  
-  // Stick: Fine, precise lines - places sand with slim width
+
+  // Stick: fine placement for line drawing.
   applyStick(x, y, isStart) {
     if (isStart) {
       this.audioManager.playToolSound('stick');
     }
-    // Slim fine width for precise drawing
     this.sandSim.addSand(x, y, 2, 0.9);
   }
-  
-  // Finger: Wide drawing tool - draws on existing sand with wide width
+
+  // Finger: adds material and smears nearby particles in drag direction.
   applyFinger(x, y, isStart) {
     if (isStart) {
       this.audioManager.playToolSound('finger');
     }
-    // Wide width for drawing on sand
-    this.sandSim.addSand(x, y, 12, 0.85);
+    this.sandSim.addSand(x, y, 10, 0.75);
+    this.sandSim.pushSand(x, y, 12, this.lastMoveAngle, 1.4);
   }
-  
-  // Trowel: Digging tool - removes or displaces sand downward
+
+  // Trowel: digs and displaces sand downward.
   applyTrowel(x, y, isStart) {
     if (isStart) {
       this.audioManager.playToolSound('trowel');
     }
-    
-    // Remove some sand
     this.sandSim.removeSand(x, y, 6);
-    
-    // Displace remaining sand downward
     this.sandSim.displaceSandDown(x, y, 8);
   }
 }
-

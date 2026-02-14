@@ -1,221 +1,181 @@
-// Audio management: Tone.js for background music, ZzFX for tool sounds
-class AudioManager {
+// Audio manager: Tone.js background score + ZzFX tool SFX.
+export default class AudioManager {
   constructor() {
     this.backgroundEnabled = true;
     this.sfxEnabled = true;
     this.synths = [];
     this.sequences = [];
     this.hasStarted = false;
+    this.starting = false;
+
+    this.musicVolume = 0.4;
+    this.sfxVolume = 0.7;
+    this.lastSfxTime = 0;
+
+    this.masterVolume = null;
   }
-  
+
   init() {
-    // Desert-inspired ambient theme with multiple layers
-    
-    // Layer 1: Low drone (desert wind)
+    if (typeof Tone === 'undefined') return;
+
+    this.masterVolume = new Tone.Volume(this.volumeToDb(this.musicVolume)).toDestination();
+
     const droneSynth = new Tone.Synth({
-      oscillator: {
-        type: 'sawtooth'
-      },
-      envelope: {
-        attack: 2,
-        decay: 1,
-        sustain: 0.7,
-        release: 3
-      }
-    }).connect(new Tone.Volume(-20)).toDestination();
-    
-    // Layer 2: Melodic desert theme (pentatonic scale - common in desert music)
+      oscillator: { type: 'sawtooth' },
+      envelope: { attack: 2, decay: 1, sustain: 0.7, release: 3 },
+    }).connect(this.masterVolume);
+
     const melodySynth = new Tone.Synth({
-      oscillator: {
-        type: 'square'
-      },
-      envelope: {
-        attack: 0.05,
-        decay: 0.2,
-        sustain: 0.4,
-        release: 0.3
-      }
-    }).connect(new Tone.Volume(-20)).toDestination();
-    
-    // Layer 3: Percussive element (sand shifting)
+      oscillator: { type: 'square' },
+      envelope: { attack: 0.05, decay: 0.2, sustain: 0.4, release: 0.3 },
+    }).connect(this.masterVolume);
+
     const percSynth = new Tone.Synth({
-      oscillator: {
-        type: 'triangle'
-      },
-      envelope: {
-        attack: 0.01,
-        decay: 0.3,
-        sustain: 0,
-        release: 0.2
-      }
-    }).connect(new Tone.Volume(-20)).toDestination();
-    
+      oscillator: { type: 'triangle' },
+      envelope: { attack: 0.01, decay: 0.3, sustain: 0, release: 0.2 },
+    }).connect(this.masterVolume);
+
     this.synths = [droneSynth, melodySynth, percSynth];
-    
-    // Drone sequence - sustained low notes (wind)
+
     const droneSeq = new Tone.Sequence((time, note) => {
       if (this.backgroundEnabled) {
         droneSynth.triggerAttackRelease(note, '2n', time);
       }
     }, ['C2', 'D2', 'C2', 'Eb2'], '2n');
-    
-    // Melody sequence - desert pentatonic theme
-    // Using pentatonic scale: C, D, E, G, A (evokes desert/middle eastern feel)
+
     const melodySeq = new Tone.Sequence((time, note) => {
       if (this.backgroundEnabled) {
         melodySynth.triggerAttackRelease(note, '8n', time);
       }
     }, ['C4', 'D4', 'E4', 'G4', 'A4', 'G4', 'E4', 'D4', 'C4', 'D4', 'E4', 'G4', 'A4', 'C5', 'A4', 'G4'], '8n');
-    
-    // Percussion sequence - subtle sand shifting sounds
+
     const percSeq = new Tone.Sequence((time, note) => {
       if (this.backgroundEnabled && note && Math.random() > 0.7) {
         percSynth.triggerAttackRelease(note, '16n', time);
       }
     }, ['C3', null, 'D3', null, 'C3', null, 'Eb3', null], '4n');
-    
+
     this.sequences = [droneSeq, melodySeq, percSeq];
-    
-    // Set all sequences to loop
-    this.sequences.forEach(seq => {
+    for (const seq of this.sequences) {
       seq.loop = true;
-    });
-  }
-  
-  start() {
-    if (this.backgroundEnabled) {
-      // Start Tone.js audio context
-      Tone.start().then(() => {
-        // Start Transport to enable sequences
-        if (Tone.Transport.state !== 'started') {
-          Tone.Transport.start();
-        }
-        
-        // Start all sequences if not already started
-        if (this.sequences.length > 0) {
-          this.sequences.forEach(seq => {
-            if (seq.state !== 'started') {
-              seq.start(0);
-            }
-          });
-        }
-        
-        this.hasStarted = true;
-        console.log('Audio started successfully');
-      }).catch(err => {
-        console.error('Audio start error:', err);
-        // Try to start anyway
-        try {
-          if (Tone.Transport.state !== 'started') {
-            Tone.Transport.start();
-          }
-          this.sequences.forEach(seq => {
-            if (seq.state !== 'started') {
-              seq.start(0);
-            }
-          });
-          this.hasStarted = true;
-        } catch (e) {
-          console.error('Failed to start audio:', e);
-        }
-      });
     }
   }
-  
-  startSequences() {
-    if (this.sequences.length > 0 && this.backgroundEnabled) {
-      // Ensure Transport is running
+
+  volumeToDb(value) {
+    if (value <= 0) return -60;
+    return 20 * Math.log10(value);
+  }
+
+  setMusicVolume(value) {
+    this.musicVolume = Math.min(1, Math.max(0, value));
+    if (this.masterVolume) {
+      this.masterVolume.volume.value = this.volumeToDb(this.musicVolume);
+    }
+  }
+
+  setSfxVolume(value) {
+    this.sfxVolume = Math.min(1, Math.max(0, value));
+  }
+
+  async start() {
+    if (!this.backgroundEnabled || typeof Tone === 'undefined') return;
+    if (this.hasStarted || this.starting) return;
+
+    this.starting = true;
+    try {
+      await Tone.start();
       if (Tone.Transport.state !== 'started') {
         Tone.Transport.start();
       }
-      
-      // Stop sequences first to ensure clean restart
-      this.sequences.forEach(seq => {
-        if (seq.state === 'started') {
-          seq.stop();
-        }
-      });
-      
-      // Small delay to ensure clean restart
-      setTimeout(() => {
-        this.sequences.forEach(seq => {
+
+      for (const seq of this.sequences) {
+        if (seq.state !== 'started') {
           seq.start(0);
-        });
-      }, 50);
-      
-      this.hasStarted = true;
-    }
-  }
-  
-  stopSequences() {
-    if (this.sequences.length > 0) {
-      this.sequences.forEach(seq => {
-        if (seq.state === 'started') {
-          seq.stop();
-        }
-      });
-    }
-  }
-  
-  toggleBackground() {
-    this.backgroundEnabled = !this.backgroundEnabled;
-    
-    if (this.backgroundEnabled) {
-      // Turn audio on
-      if (!this.hasStarted) {
-        // First time starting
-        this.start();
-      } else {
-        // Restart sequences if they were stopped
-        if (Tone.context.state === 'running') {
-          this.startSequences();
-        } else {
-          this.start();
         }
       }
+
+      this.hasStarted = true;
+    } catch (err) {
+      // Keep app functional if browser audio context fails to start.
+      console.error('Audio failed to start', err);
+    } finally {
+      this.starting = false;
+    }
+  }
+
+  startSequences() {
+    if (!this.backgroundEnabled || typeof Tone === 'undefined') return;
+
+    if (Tone.Transport.state !== 'started') {
+      Tone.Transport.start();
+    }
+
+    for (const seq of this.sequences) {
+      if (seq.state !== 'started') {
+        seq.start(0);
+      }
+    }
+  }
+
+  stopSequences() {
+    for (const seq of this.sequences) {
+      if (seq.state === 'started') {
+        seq.stop();
+      }
+    }
+  }
+
+  toggleBackground() {
+    this.backgroundEnabled = !this.backgroundEnabled;
+
+    if (this.backgroundEnabled) {
+      if (!this.hasStarted) {
+        this.start();
+      } else {
+        this.startSequences();
+      }
     } else {
-      // Turn audio off
       this.stopSequences();
     }
   }
-  
+
   toggleSFX() {
     this.sfxEnabled = !this.sfxEnabled;
   }
-  
-  playToolSound(toolName) {
-    if (!this.sfxEnabled) return;
-    
-    let soundParams;
-    
+
+  getToolParams(toolName) {
     switch (toolName) {
       case 'stick':
-        // Drawing in sand - light scraping sound
-        soundParams = [0.15, , 600, 0.02, 0.05, 0.15, , 0.3, , , , , , 0.1];
-        break;
+        return [0.15, undefined, 600, 0.02, 0.05, 0.15, undefined, 0.3, undefined, undefined, undefined, undefined, undefined, 0.1];
       case 'finger':
-        // Smearing sand - soft whoosh/rustle
-        soundParams = [0.25, , 300, 0.1, 0.15, 0.25, , 0.2, , , , , , 0.25];
-        break;
+        return [0.25, undefined, 300, 0.1, 0.15, 0.25, undefined, 0.2, undefined, undefined, undefined, undefined, undefined, 0.25];
       case 'trowel':
-        // Digging - deeper scraping/digging sound
-        soundParams = [0.35, , 150, 0.15, 0.2, 0.35, , 0.5, , , , , , 0.3];
-        break;
+        return [0.35, undefined, 150, 0.15, 0.2, 0.35, undefined, 0.5, undefined, undefined, undefined, undefined, undefined, 0.3];
       default:
-        return;
-    }
-    
-    if (typeof zzfx !== 'undefined') {
-      zzfx(...soundParams);
+        return null;
     }
   }
-  
+
+  playToolSound(toolName) {
+    if (!this.sfxEnabled || typeof zzfx === 'undefined') return;
+
+    const now = performance.now();
+    if (now - this.lastSfxTime < 45) return;
+    this.lastSfxTime = now;
+
+    const params = this.getToolParams(toolName);
+    if (!params) return;
+
+    const output = [...params];
+    output[0] = (output[0] || 0.2) * this.sfxVolume;
+    zzfx(...output);
+  }
+
   isBackgroundEnabled() {
     return this.backgroundEnabled;
   }
-  
+
   isSFXEnabled() {
     return this.sfxEnabled;
   }
 }
-

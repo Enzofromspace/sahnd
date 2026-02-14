@@ -1,7 +1,12 @@
+:root {
+  --app-bg: #000;
+  --panel-gap: 10px;
+}
+
 body {
   margin: 0;
   padding: 0;
-  background: #000;
+  background: var(--app-bg);
   overflow: hidden;
 }
 
@@ -30,15 +35,21 @@ body {
   justify-content: center;
   align-items: center;
   background: #000;
-  margin-bottom: 10px;
+  margin-bottom: var(--panel-gap);
   overflow: hidden;
+  min-height: 220px;
 }
 
 .tool-panel {
-  display: flex;
-  gap: 10px;
-  align-items: flex-start;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(200px, 1fr));
+  gap: var(--panel-gap);
+  align-items: stretch;
   flex-shrink: 0;
+}
+
+.panel-block {
+  min-height: 132px;
 }
 
 .tool-selector {
@@ -54,10 +65,70 @@ body {
   cursor: pointer;
 }
 
+.palette-lock-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.color-controls,
+.bg-controls,
+.audio-controls {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.audio-controls {
+  align-items: flex-start;
+  flex-direction: column;
+  width: 100%;
+}
+
+.audio-controls input[type='range'] {
+  width: 100%;
+}
+
+.bg-color-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+#color-picker,
+#bg-color-picker {
+  width: 50px;
+  height: 36px;
+  border: 2px solid #000;
+  cursor: pointer;
+  padding: 0;
+}
+
+#color-hex {
+  width: 100px;
+  font-family: monospace;
+  text-transform: uppercase;
+}
+
+.nes-select {
+  width: 100%;
+}
+
+#bg-select {
+  width: 100%;
+}
+
 .button-group {
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
+  align-content: flex-start;
+}
+
+.button-group.compact {
+  width: 100%;
 }
 
 .button-group button {
@@ -70,28 +141,27 @@ canvas {
   image-rendering: crisp-edges;
 }
 
-.color-controls {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  flex-wrap: wrap;
+@media (max-width: 1180px) {
+  .tool-panel {
+    grid-template-columns: repeat(2, minmax(220px, 1fr));
+  }
 }
 
-#color-picker {
-  width: 50px;
-  height: 40px;
-  border: 2px solid #000;
-  cursor: pointer;
-  padding: 0;
-}
+@media (max-width: 760px) {
+  body {
+    overflow: auto;
+  }
 
-#color-hex {
-  width: 100px;
-  font-family: monospace;
-  text-transform: uppercase;
-}
+  .window-body {
+    height: auto;
+    min-height: calc(100vh - 30px);
+  }
 
-#apply-color {
-  white-space: nowrap;
-}
+  .tool-panel {
+    grid-template-columns: 1fr;
+  }
 
+  #canvas-container {
+    min-height: 280px;
+  }
+}

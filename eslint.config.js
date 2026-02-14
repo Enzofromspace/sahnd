@@ -1,23 +1,46 @@
-import js from '@eslint/js'
-import globals from 'globals'
-import reactHooks from 'eslint-plugin-react-hooks'
-import reactRefresh from 'eslint-plugin-react-refresh'
-import tseslint from 'typescript-eslint'
-import { defineConfig, globalIgnores } from 'eslint/config'
+import js from '@eslint/js';
+import globals from 'globals';
+import { defineConfig, globalIgnores } from 'eslint/config';
+
+const p5Globals = {
+  createCanvas: 'readonly',
+  createGraphics: 'readonly',
+  background: 'readonly',
+  fill: 'readonly',
+  noStroke: 'readonly',
+  noSmooth: 'readonly',
+  pixelDensity: 'readonly',
+  triangle: 'readonly',
+  rect: 'readonly',
+  image: 'readonly',
+  loadImage: 'readonly',
+  saveCanvas: 'readonly',
+  mouseX: 'readonly',
+  mouseY: 'readonly',
+  touches: 'readonly',
+};
+
+const audioGlobals = {
+  Tone: 'readonly',
+  zzfx: 'readonly',
+};
 
 export default defineConfig([
-  globalIgnores(['dist']),
+  globalIgnores(['dist', 'node_modules']),
+  js.configs.recommended,
   {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      js.configs.recommended,
-      tseslint.configs.recommended,
-      reactHooks.configs.flat.recommended,
-      reactRefresh.configs.vite,
-    ],
+    files: ['**/*.js'],
     languageOptions: {
-      ecmaVersion: 2020,
-      globals: globals.browser,
+      ecmaVersion: 2023,
+      sourceType: 'module',
+      globals: {
+        ...globals.browser,
+        ...p5Globals,
+        ...audioGlobals,
+      },
+    },
+    rules: {
+      'no-console': 'off',
     },
   },
-])
+]);

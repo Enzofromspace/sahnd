@@ -4,14 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Sahnd - Sierra AGI Sand Drawing</title>
-  
-  <!-- XP.css for system-style UI framing -->
+
   <link rel="stylesheet" href="https://unpkg.com/xp.css@0.2.3/dist/xp.css">
-  
-  <!-- NES.css for retro UI components -->
   <link rel="stylesheet" href="https://unpkg.com/nes.css@2.3.0/css/nes.min.css">
-  
-  <!-- Custom UI styles -->
   <link rel="stylesheet" href="styles/ui.css">
 </head>
 <body>
@@ -24,11 +19,12 @@
         <button aria-label="Close"></button>
       </div>
     </div>
+
     <div class="window-body">
       <div id="canvas-container"></div>
-      
+
       <div class="tool-panel">
-        <div class="nes-container with-title is-dark">
+        <div class="nes-container with-title is-dark panel-block">
           <p class="title">Tools</p>
           <div class="tool-selector">
             <label>
@@ -45,38 +41,66 @@
             </label>
           </div>
         </div>
-        
-        <div class="nes-container with-title is-dark">
+
+        <div class="nes-container with-title is-dark panel-block">
           <p class="title">Sand Color</p>
           <div class="color-controls">
-            <input type="color" id="color-picker" value="#0064ff" title="Color Picker">
-            <input type="text" id="color-hex" class="nes-input" placeholder="#0064ff" maxlength="7">
+            <input type="color" id="color-picker" value="#0064FF" title="Sand Color Picker">
+            <input type="text" id="color-hex" class="nes-input" placeholder="#0064FF" maxlength="7">
             <button type="button" class="nes-btn" id="apply-color">Apply</button>
           </div>
+          <label class="palette-lock-row" for="palette-lock">
+            <input type="checkbox" class="nes-checkbox" id="palette-lock" checked>
+            <span>Lock to AGI palette</span>
+          </label>
         </div>
-        
+
+        <div class="nes-container with-title is-dark panel-block">
+          <p class="title">Backdrop</p>
+          <div class="bg-controls">
+            <label class="nes-select">
+              <select id="bg-select">
+                <option value="pyramids" selected>Pyramids</option>
+                <option value="beach">Beach</option>
+                <option value="camels">Camels</option>
+                <option value="mars">Mars</option>
+                <option value="sandbox">Sandbox</option>
+                <option value="none">None</option>
+              </select>
+            </label>
+            <div class="bg-color-row">
+              <span>Background</span>
+              <input type="color" id="bg-color-picker" value="#000000" title="Background Color Picker">
+            </div>
+          </div>
+        </div>
+
+        <div class="nes-container with-title is-dark panel-block">
+          <p class="title">Audio</p>
+          <div class="audio-controls">
+            <div class="button-group compact">
+              <button type="button" class="nes-btn" id="audio-toggle">Music: ON</button>
+              <button type="button" class="nes-btn" id="sfx-toggle">SFX: ON</button>
+            </div>
+            <label for="music-volume">Music Vol</label>
+            <input id="music-volume" type="range" min="0" max="100" value="40">
+            <label for="sfx-volume">SFX Vol</label>
+            <input id="sfx-volume" type="range" min="0" max="100" value="70">
+          </div>
+        </div>
+
         <div class="button-group">
           <button type="button" class="nes-btn is-primary" id="reset-btn">Reset Sand</button>
           <button type="button" class="nes-btn is-success" id="save-btn">Save Scene</button>
-          <button type="button" class="nes-btn" id="audio-toggle">Audio: ON</button>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- p5.js for canvas rendering -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.7.0/p5.min.js"></script>
-  
-  <!-- Tone.js for background music -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
-  
-  <!-- ZzFX for sound effects -->
   <script src="https://cdn.jsdelivr.net/gh/keithclark/ZzFX@master/src/zzfx.js"></script>
-  
-  <!-- Application modules -->
-  <script src="src/audio.js"></script>
-  <script src="src/sand.js"></script>
-  <script src="src/tools.js"></script>
-  <script src="src/main.js"></script>
+
+  <script type="module" src="/src/main.js"></script>
 </body>
 </html>
