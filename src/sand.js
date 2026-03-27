@@ -44,7 +44,6 @@ class SandSimulation {
   
   reset() {
     this.initGrids();
-    this.fillToPercentage(0.3); // Fill 30% of screen by default
   }
   
   // Fill sand to a percentage of the screen
@@ -317,4 +316,3 @@ class SandSimulation {
     return p5.canvas;
   }
 }
-
