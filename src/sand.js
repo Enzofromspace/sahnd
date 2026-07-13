@@ -33,50 +33,8 @@ export default class SandSimulation {
   rgbToInt(r, g, b) {
     return ((r & 255) << 16) | ((g & 255) << 8) | (b & 255);
   }
-<<<<<<< HEAD
-  
-  getColor() {
-    return this.sandColor;
-  }
-  
-  initGrids() {
-    for (let y = 0; y < this.rows; y++) {
-      this.grid[y] = [];
-      this.nextGrid[y] = [];
-      for (let x = 0; x < this.cols; x++) {
-        this.grid[y][x] = 0;
-        this.nextGrid[y][x] = 0;
-      }
-    }
-  }
-  
-  reset() {
-    this.initGrids();
-  }
-  
-  // Fill sand to a percentage of the screen
-  fillToPercentage(percentage) {
-    const totalCells = this.cols * this.rows;
-    const targetCells = Math.floor(totalCells * percentage);
-    let filledCells = 0;
-    
-    // Default blue color for initial fill
-    const defaultColor = { r: 0, g: 100, b: 255 };
-    
-    // Fill from bottom up, creating a natural sand pile
-    for (let y = this.rows - 1; y >= 0 && filledCells < targetCells; y--) {
-      for (let x = 0; x < this.cols && filledCells < targetCells; x++) {
-        this.grid[y][x] = { ...defaultColor };
-        filledCells++;
-      }
-    }
-  }
-  
-  worldToGrid(x, y) {
-=======
 
   intToRgb(value) {
->>>>>>> fc91a4e (codex test)
     return {
       r: (value >>> 16) & 255,
       g: (value >>> 8) & 255,
