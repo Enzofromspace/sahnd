@@ -12,10 +12,22 @@ export default class SandSimulation {
     this.grid = new Uint32Array(this.size);
     this.nextGrid = new Uint32Array(this.size);
 
-    this.defaultColorInt = this.rgbToInt(0, 100, 255);
+    this.defaultColorInt = this.rgbToInt(85, 85, 255);
     this.sandColorInt = this.defaultColorInt;
 
     this.brushCache = new Map();
+
+    // Alternating scan direction removes the horizontal bias of a fixed
+    // left-to-right sweep.
+    this.scanLeftToRight = true;
+
+    // Probability that a grain slides diagonally when it could; below 1 lets
+    // piles hold steeper, more dune-like slopes.
+    this.reposeChance = 0.85;
+
+    // One-image frame buffer written pixel-per-cell, drawn scaled up once per
+    // frame. Created lazily because p5's createImage needs an active sketch.
+    this.frameImage = null;
   }
 
   rgbToInt(r, g, b) {
@@ -120,10 +132,20 @@ export default class SandSimulation {
     return `#${this.sandColorInt.toString(16).padStart(6, '0').toUpperCase()}`;
   }
 
-  reset() {
+  snapshot() {
+    return this.grid.slice();
+  }
+
+  restore(snapshot) {
+    if (!snapshot || snapshot.length !== this.size) return;
+    this.grid.set(snapshot);
+    this.nextGrid.set(snapshot);
+  }
+
+  reset(percentage = 0.3) {
     this.grid.fill(0);
     this.nextGrid.fill(0);
-    this.fillToPercentage(0.3);
+    this.fillToPercentage(percentage);
   }
 
   fillToPercentage(percentage) {
@@ -133,10 +155,21 @@ export default class SandSimulation {
 
     for (let y = this.rows - 1; y >= 0 && filledCells < targetCells; y--) {
       for (let x = 0; x < this.cols && filledCells < targetCells; x++) {
-        this.grid[this.getIndex(x, y)] = this.defaultColorInt;
+        this.grid[this.getIndex(x, y)] = this.jitterColor(this.defaultColorInt);
         filledCells += 1;
       }
     }
+  }
+
+  // Slight per-grain brightness variation so sand reads as textured dunes.
+  jitterColor(colorInt) {
+    const factor = 0.9 + Math.random() * 0.18;
+    const r = Math.min(255, Math.round(((colorInt >>> 16) & 255) * factor));
+    const g = Math.min(255, Math.round(((colorInt >>> 8) & 255) * factor));
+    const b = Math.min(255, Math.round((colorInt & 255) * factor));
+    const packed = this.rgbToInt(r, g, b);
+    // 0 is reserved for empty; nudge pure black grains up.
+    return packed === 0 ? this.rgbToInt(1, 1, 1) : packed;
   }
 
   getBrushOffsets(gridRadius) {
@@ -173,7 +206,7 @@ export default class SandSimulation {
       if (this.isValid(col, row)) {
         const idx = this.getIndex(col, row);
         if (this.grid[idx] === 0) {
-          this.grid[idx] = this.sandColorInt;
+          this.grid[idx] = this.jitterColor(this.sandColorInt);
         }
       }
     }
@@ -200,6 +233,8 @@ export default class SandSimulation {
 
     const pushX = Math.cos(angle) * strength;
     const pushY = Math.sin(angle) * strength;
+    const stepX = Math.cos(angle);
+    const stepY = Math.sin(angle);
     const moved = [];
 
     for (const item of offsets) {
@@ -212,13 +247,23 @@ export default class SandSimulation {
       if (color === 0) continue;
 
       const falloff = 1 - Math.sqrt(item.distSq) / Math.max(1, gridRadius);
-      const newCol = Math.round(col + pushX * falloff);
-      const newRow = Math.round(row + pushY * falloff);
-
+      let newCol = Math.round(col + pushX * falloff);
+      let newRow = Math.round(row + pushY * falloff);
       if (!this.isValid(newCol, newRow)) continue;
-      const toIndex = this.getIndex(newCol, newRow);
-      if (this.grid[toIndex] !== 0) continue;
 
+      // If the target is occupied, probe a couple of cells further along the
+      // push direction so smearing displaces material instead of stalling.
+      let toIndex = this.getIndex(newCol, newRow);
+      let probes = 2;
+      while (this.grid[toIndex] !== 0 && probes > 0) {
+        newCol = Math.round(newCol + stepX);
+        newRow = Math.round(newRow + stepY);
+        if (!this.isValid(newCol, newRow)) break;
+        toIndex = this.getIndex(newCol, newRow);
+        probes -= 1;
+      }
+
+      if (!this.isValid(newCol, newRow) || this.grid[toIndex] !== 0) continue;
       moved.push({ fromIndex, toIndex, color });
     }
 
@@ -277,9 +322,14 @@ export default class SandSimulation {
 
   update() {
     this.nextGrid.set(this.grid);
+    this.scanLeftToRight = !this.scanLeftToRight;
+
+    const xStart = this.scanLeftToRight ? 0 : this.cols - 1;
+    const xEnd = this.scanLeftToRight ? this.cols : -1;
+    const xStep = this.scanLeftToRight ? 1 : -1;
 
     for (let y = this.rows - 2; y >= 0; y--) {
-      for (let x = 0; x < this.cols; x++) {
+      for (let x = xStart; x !== xEnd; x += xStep) {
         const idx = this.getIndex(x, y);
         const color = this.grid[idx];
         if (color === 0) continue;
@@ -292,6 +342,8 @@ export default class SandSimulation {
           this.nextGrid[belowIdx] = color;
           continue;
         }
+
+        if (Math.random() > this.reposeChance) continue;
 
         let leftOpen = false;
         let rightOpen = false;
@@ -327,27 +379,30 @@ export default class SandSimulation {
   }
 
   render() {
-    noStroke();
+    if (!this.frameImage) {
+      this.frameImage = createImage(this.cols, this.rows);
+      this.frameImage.loadPixels();
+    }
 
-    const particleSize = this.cellSize * 0.7;
-    const offset = (this.cellSize - particleSize) / 2;
-    let lastColor = -1;
+    const pixels = this.frameImage.pixels;
+    const grid = this.grid;
 
-    for (let y = 0; y < this.rows; y++) {
-      const rowOffset = y * this.cols;
-      const drawY = y * this.cellSize + offset;
-
-      for (let x = 0; x < this.cols; x++) {
-        const cell = this.grid[rowOffset + x];
-        if (cell === 0) continue;
-
-        if (cell !== lastColor) {
-          fill((cell >>> 16) & 255, (cell >>> 8) & 255, cell & 255);
-          lastColor = cell;
-        }
-
-        rect(x * this.cellSize + offset, drawY, particleSize, particleSize);
+    for (let i = 0; i < this.size; i++) {
+      const cell = grid[i];
+      const p = i * 4;
+      if (cell === 0) {
+        pixels[p + 3] = 0;
+      } else {
+        pixels[p] = (cell >>> 16) & 255;
+        pixels[p + 1] = (cell >>> 8) & 255;
+        pixels[p + 2] = cell & 255;
+        // 50% alpha so the backdrop stays visible under the sand, like
+        // coloring over the scene.
+        pixels[p + 3] = 128;
       }
     }
+
+    this.frameImage.updatePixels();
+    image(this.frameImage, 0, 0, this.cols * this.cellSize, this.rows * this.cellSize);
   }
 }

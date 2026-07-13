@@ -3,10 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' blob: https://cdnjs.cloudflare.com; worker-src blob:; style-src 'self' 'unsafe-inline' https://unpkg.com; font-src 'self' data: https://unpkg.com; img-src 'self' data: blob:; connect-src 'self'; media-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'none'">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
   <title>Sahnd - Sierra AGI Sand Drawing</title>
 
-  <link rel="stylesheet" href="https://unpkg.com/xp.css@0.2.3/dist/xp.css">
-  <link rel="stylesheet" href="https://unpkg.com/nes.css@2.3.0/css/nes.min.css">
+  <link rel="stylesheet" href="https://unpkg.com/xp.css@0.2.3/dist/xp.css"
+        integrity="sha384-kh7i9yrKLhaVoDALHIrxadGD+V6dnvX9RefEyociSI0Xzxawo+ZHhhoCu/ixnstI" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://unpkg.com/nes.css@2.3.0/css/nes.min.css"
+        integrity="sha384-O6AjLjfUmUlVtjVwX4WKPHE+6hSARLX8hRW1n+5w6b8dY0ED4fylO/udKa4UraEf" crossorigin="anonymous">
   <link rel="stylesheet" href="styles/ui.css">
 </head>
 <body>
@@ -40,14 +44,19 @@
               <span>Trowel</span>
             </label>
           </div>
+          <div class="brush-size-row">
+            <label for="brush-size">Brush Size</label>
+            <input id="brush-size" type="range" min="50" max="250" value="100" step="10">
+          </div>
         </div>
 
         <div class="nes-container with-title is-dark panel-block">
           <p class="title">Sand Color</p>
+          <div id="palette-swatches" role="listbox" aria-label="AGI palette swatches"></div>
           <div class="color-controls">
-            <input type="color" id="color-picker" value="#0064FF" title="Sand Color Picker">
-            <input type="text" id="color-hex" class="nes-input" placeholder="#0064FF" maxlength="7">
-            <button type="button" class="nes-btn" id="apply-color">Apply</button>
+            <span id="current-color-chip" title="Current sand color"></span>
+            <input type="color" id="color-picker" value="#5555FF" title="Sand Color Picker">
+            <input type="text" id="color-hex" class="nes-input" placeholder="#5555FF" maxlength="7">
           </div>
           <label class="palette-lock-row" for="palette-lock">
             <input type="checkbox" class="nes-checkbox" id="palette-lock" checked>
@@ -69,8 +78,8 @@
               </select>
             </label>
             <div class="bg-color-row">
-              <span>Background</span>
-              <input type="color" id="bg-color-picker" value="#000000" title="Background Color Picker">
+              <span>Scene Tint</span>
+              <input type="color" id="bg-color-picker" value="#FFFFFF" title="Scene Tint Color">
             </div>
           </div>
         </div>
@@ -89,17 +98,83 @@
           </div>
         </div>
 
-        <div class="button-group">
-          <button type="button" class="nes-btn is-primary" id="reset-btn">Reset Sand</button>
-          <button type="button" class="nes-btn is-success" id="save-btn">Save Scene</button>
+        <div class="nes-container with-title is-dark panel-block">
+          <p class="title">Scene</p>
+          <div class="scene-controls">
+            <label class="nes-select fill-select">
+              <select id="fill-select" title="Sand fill amount used by Reset">
+                <option value="0">Fill: Empty</option>
+                <option value="0.15">Fill: Low</option>
+                <option value="0.3" selected>Fill: Normal</option>
+                <option value="0.5">Fill: High</option>
+              </select>
+            </label>
+            <div class="button-group">
+              <button type="button" class="nes-btn" id="reset-btn">Reset</button>
+              <button type="button" class="nes-btn" id="undo-btn">Undo</button>
+              <button type="button" class="nes-btn" id="save-btn">Save</button>
+              <button type="button" class="nes-btn" id="help-btn">Help</button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
   </div>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.7.0/p5.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
-  <script src="https://cdn.jsdelivr.net/gh/keithclark/ZzFX@master/src/zzfx.js"></script>
+  <div id="help-overlay" hidden>
+    <div class="window help-window">
+      <div class="title-bar">
+        <div class="title-bar-text">Sahnd Help</div>
+        <div class="title-bar-controls">
+          <button aria-label="Close" id="help-close-x"></button>
+        </div>
+      </div>
+      <div class="window-body help-body">
+        <h4>Tools</h4>
+        <ul>
+          <li><b>Stick</b> (key 1): fine line brush for detail work.</li>
+          <li><b>Finger</b> (key 2): adds sand and smears it in the drag direction.</li>
+          <li><b>Trowel</b> (key 3): digs sand out and pushes it downward.</li>
+          <li><b>Brush Size</b> (keys [ and ]): scales the active tool from 0.5x to 2.5x.</li>
+        </ul>
+        <h4>Sand Color</h4>
+        <ul>
+          <li>Click a palette swatch to use that color instantly.</li>
+          <li>Use the picker or type a hex code (press Enter) for custom colors.</li>
+          <li><b>Lock to AGI palette</b> snaps custom colors to the 16 EGA colors.</li>
+        </ul>
+        <h4>Backdrop</h4>
+        <ul>
+          <li>Pick a scene image, or None for a blank canvas.</li>
+          <li><b>Scene Tint</b> colors the whole backdrop (white = no tint).</li>
+        </ul>
+        <h4>Scene</h4>
+        <ul>
+          <li><b>Fill</b> sets how much sand a Reset starts with (Empty to High).</li>
+          <li><b>Reset</b> (key R): clears to the selected fill amount.</li>
+          <li><b>Undo</b> (Ctrl/Cmd+Z): steps back up to 10 strokes or resets.</li>
+          <li><b>Save</b>: downloads the canvas as a PNG.</li>
+        </ul>
+        <h4>Audio</h4>
+        <ul>
+          <li>Music and SFX have independent toggles and volume sliders.</li>
+          <li>Audio starts after your first click (browser autoplay rules).</li>
+        </ul>
+        <div class="help-footer">
+          <div class="help-links">
+            <a href="https://www.linkedin.com/newsletters/the-frame-7289151971377188864/" target="_blank" rel="noopener noreferrer">Newsletter</a>
+            <a href="https://x.com/EnzoFromSpace" target="_blank" rel="noopener noreferrer">Send Feedback</a>
+          </div>
+          <button type="button" class="nes-btn" id="help-close-btn">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.7.0/p5.min.js"
+          integrity="sha384-Mhzoc5EVkjFUVtIW2M3h8BgXtFlUsUpu9lTCThPrV7+k6MN6vTi079rew0LkvgFb" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"
+          integrity="sha384-c6Uo4N9c3SOEigMVzP6IshUG1wQ5uMp3xeoQFiHWAQ86joWdgyajkvopySyKy/Z6" crossorigin="anonymous"></script>
 
   <script type="module" src="/src/main.js"></script>
 </body>

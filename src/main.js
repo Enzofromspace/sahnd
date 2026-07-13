@@ -17,12 +17,17 @@ const BACKGROUNDS = {
   sandbox: sandboxUrl,
 };
 
+// The true EGA/AGI 16-color palette Sierra games drew from.
 const RETRO_PALETTE = [
-  '#000000', '#1E1E1E', '#3C3C3C', '#7C7C7C',
-  '#B85E0B', '#D98E04', '#E7C267', '#EFD9A6',
-  '#0C4A6E', '#1E88E5', '#47B1FF', '#9AD4FF',
-  '#2E7D32', '#5DA84A', '#B7C968', '#D9E7A8',
+  '#000000', '#555555', '#AAAAAA', '#FFFFFF',
+  '#AA0000', '#FF5555', '#AA5500', '#FFFF55',
+  '#00AA00', '#55FF55', '#00AAAA', '#55FFFF',
+  '#0000AA', '#5555FF', '#AA00AA', '#FF55FF',
 ];
+
+const HEX_PATTERN = /^#[0-9A-Fa-f]{6}$/;
+const SIM_SUBSTEPS = 2;
+const UNDO_LIMIT = 10;
 
 let sandSim;
 let toolManager;
@@ -30,7 +35,8 @@ let audioManager;
 
 let backgroundImage = null;
 let currentBackgroundKey = 'pyramids';
-let backgroundColor = '#000000';
+// Tint applied to the backdrop; white means untinted.
+let backgroundColor = '#FFFFFF';
 
 let fallbackLayer;
 let stickCursorUrl;
@@ -38,17 +44,23 @@ let stickCursorUrl;
 let canvasWidth = 800;
 let canvasHeight = 600;
 
+const undoStack = [];
+
 function preload() {
   loadBackgroundImage(currentBackgroundKey);
 }
 
-function setup() {
+function computeCanvasSize() {
   const container = document.getElementById('canvas-container');
   const containerWidth = container ? container.clientWidth : window.innerWidth - 40;
   const containerHeight = container ? container.clientHeight : window.innerHeight - 240;
 
   canvasWidth = Math.max(400, Math.min(containerWidth - 20, 1200));
   canvasHeight = Math.max(300, Math.min(containerHeight - 20, 800));
+}
+
+function setup() {
+  computeCanvasSize();
 
   pixelDensity(1);
   noSmooth();
@@ -78,29 +90,171 @@ function setup() {
   }, { once: true });
 }
 
+function windowResized() {
+  const previousGrid = sandSim ? sandSim.snapshot() : null;
+  const previousSim = sandSim;
+
+  computeCanvasSize();
+  resizeCanvas(canvasWidth, canvasHeight);
+
+  fallbackLayer = createGraphics(canvasWidth, canvasHeight);
+  fallbackLayer.pixelDensity(1);
+  fallbackLayer.noSmooth();
+  buildFallbackLayer();
+
+  const nextSim = new SandSimulation(canvasWidth, canvasHeight, 2);
+  if (previousSim && previousGrid) {
+    copyGridInto(previousSim, previousGrid, nextSim);
+  }
+
+  sandSim = nextSim;
+  if (toolManager) {
+    toolManager.sandSim = nextSim;
+  }
+
+  // Old snapshots no longer match the grid dimensions.
+  undoStack.length = 0;
+  updateUndoButton();
+}
+
+// Copy the overlapping region, keeping columns left-aligned and rows
+// bottom-aligned so existing sand stays grounded.
+function copyGridInto(fromSim, fromGrid, toSim) {
+  const cols = Math.min(fromSim.cols, toSim.cols);
+  const rows = Math.min(fromSim.rows, toSim.rows);
+  const fromRowStart = fromSim.rows - rows;
+  const toRowStart = toSim.rows - rows;
+
+  for (let y = 0; y < rows; y++) {
+    for (let x = 0; x < cols; x++) {
+      toSim.grid[(toRowStart + y) * toSim.cols + x] = fromGrid[(fromRowStart + y) * fromSim.cols + x];
+    }
+  }
+}
+
+function pushUndoSnapshot() {
+  if (!sandSim) return;
+  undoStack.push(sandSim.snapshot());
+  if (undoStack.length > UNDO_LIMIT) {
+    undoStack.shift();
+  }
+  updateUndoButton();
+}
+
+function undo() {
+  if (!sandSim || undoStack.length === 0) return;
+  sandSim.restore(undoStack.pop());
+  updateUndoButton();
+}
+
+function updateUndoButton() {
+  const undoBtn = document.getElementById('undo-btn');
+  if (undoBtn) {
+    undoBtn.disabled = undoStack.length === 0;
+  }
+}
+
+function isPaletteLocked() {
+  const paletteLock = document.getElementById('palette-lock');
+  return Boolean(paletteLock && paletteLock.checked);
+}
+
+// Single entry point for color changes: snaps to the AGI palette when locked,
+// updates the sim, and keeps picker, hex field, chip, and swatches in sync.
+function applyColor(hex) {
+  if (!HEX_PATTERN.test(hex)) return;
+
+  const normalized = hex.toUpperCase();
+  const nextHex = isPaletteLocked() ? snapToRetroPalette(normalized) : normalized;
+  sandSim?.setColor(nextHex);
+  syncColorUI(nextHex);
+}
+
+function syncColorUI(hex) {
+  const colorPicker = document.getElementById('color-picker');
+  const colorHex = document.getElementById('color-hex');
+  const chip = document.getElementById('current-color-chip');
+
+  if (colorPicker) colorPicker.value = hex;
+  if (colorHex) colorHex.value = hex;
+  if (chip) chip.style.background = hex;
+
+  const swatches = document.querySelectorAll('.palette-swatch');
+  for (const swatch of swatches) {
+    swatch.classList.toggle('is-selected', swatch.dataset.color === hex);
+    swatch.setAttribute('aria-selected', swatch.dataset.color === hex ? 'true' : 'false');
+  }
+}
+
+function buildPaletteSwatches() {
+  const container = document.getElementById('palette-swatches');
+  if (!container) return;
+
+  for (const color of RETRO_PALETTE) {
+    const swatch = document.createElement('button');
+    swatch.type = 'button';
+    swatch.className = 'palette-swatch';
+    swatch.dataset.color = color;
+    swatch.style.background = color;
+    swatch.title = color;
+    swatch.setAttribute('role', 'option');
+    swatch.addEventListener('click', () => applyColor(color));
+    container.appendChild(swatch);
+  }
+}
+
+function setToolAndSync(toolName) {
+  if (!toolManager) return;
+  toolManager.setTool(toolName);
+  updateCursor(toolName);
+
+  const radio = document.querySelector(`input[name="tool"][value="${toolName}"]`);
+  if (radio) radio.checked = true;
+}
+
+function setBrushScaleAndSync(percent) {
+  const clamped = Math.min(250, Math.max(50, percent));
+  toolManager?.setSizeScale(clamped / 100);
+
+  const slider = document.getElementById('brush-size');
+  if (slider) slider.value = String(clamped);
+}
+
+function getFillPercentage() {
+  const fillSelect = document.getElementById('fill-select');
+  const value = fillSelect ? Number(fillSelect.value) : 0.3;
+  return Number.isFinite(value) ? value : 0.3;
+}
+
+function resetSand() {
+  if (!sandSim) return;
+  pushUndoSnapshot();
+  sandSim.reset(getFillPercentage());
+}
+
 function setupUI() {
+  buildPaletteSwatches();
+
   const toolRadios = document.querySelectorAll('input[name="tool"]');
   const checkedTool = document.querySelector('input[name="tool"]:checked');
 
-  if (checkedTool && toolManager) {
-    toolManager.setTool(checkedTool.value);
-    updateCursor(checkedTool.value);
+  if (checkedTool) {
+    setToolAndSync(checkedTool.value);
   }
 
   for (const radio of toolRadios) {
-    radio.addEventListener('change', () => {
-      if (!toolManager) return;
-      toolManager.setTool(radio.value);
-      updateCursor(radio.value);
+    radio.addEventListener('change', () => setToolAndSync(radio.value));
+  }
+
+  const brushSize = document.getElementById('brush-size');
+  if (brushSize) {
+    brushSize.addEventListener('input', (event) => {
+      setBrushScaleAndSync(Number(event.target.value));
     });
   }
 
-  const resetBtn = document.getElementById('reset-btn');
-  if (resetBtn) {
-    resetBtn.addEventListener('click', () => {
-      sandSim?.reset();
-    });
-  }
+  document.getElementById('reset-btn')?.addEventListener('click', resetSand);
+  document.getElementById('undo-btn')?.addEventListener('click', undo);
 
   const saveBtn = document.getElementById('save-btn');
   if (saveBtn) {
@@ -158,82 +312,121 @@ function setupUI() {
   }
 
   const colorPicker = document.getElementById('color-picker');
-  const colorHex = document.getElementById('color-hex');
-  const applyColorBtn = document.getElementById('apply-color');
-  const paletteLock = document.getElementById('palette-lock');
-
-  if (colorPicker && colorHex) {
+  if (colorPicker) {
     colorPicker.addEventListener('input', (event) => {
-      const raw = event.target.value.toUpperCase();
-      const snapped = isPaletteLocked(paletteLock) ? snapToRetroPalette(raw) : raw;
-      colorHex.value = snapped;
-      if (snapped !== raw) {
-        colorPicker.value = snapped;
-      }
+      applyColor(event.target.value);
     });
   }
 
-  if (colorHex && colorPicker) {
-    colorHex.addEventListener('input', (event) => {
-      const hex = event.target.value;
-      if (/^#[0-9A-Fa-f]{6}$/.test(hex)) {
-        const normalized = hex.toUpperCase();
-        const snapped = isPaletteLocked(paletteLock) ? snapToRetroPalette(normalized) : normalized;
-        colorPicker.value = snapped;
+  const colorHex = document.getElementById('color-hex');
+  if (colorHex) {
+    const applyHexField = () => {
+      const hex = colorHex.value.trim();
+      if (HEX_PATTERN.test(hex)) {
+        applyColor(hex);
+      } else {
+        syncColorUI(sandSim?.getColorHex() || '#5555FF');
       }
-    });
+    };
 
     colorHex.addEventListener('keydown', (event) => {
       if (event.key === 'Enter') {
-        applyColorBtn?.click();
+        applyHexField();
+        colorHex.blur();
+      }
+    });
+    colorHex.addEventListener('blur', applyHexField);
+  }
+
+  const paletteLock = document.getElementById('palette-lock');
+  if (paletteLock) {
+    paletteLock.addEventListener('change', () => {
+      if (paletteLock.checked && sandSim) {
+        applyColor(sandSim.getColorHex());
       }
     });
   }
 
-  if (applyColorBtn && colorHex && colorPicker) {
-    applyColorBtn.addEventListener('click', () => {
-      const source = colorHex.value || colorPicker.value || '#0064FF';
-      if (!/^#[0-9A-Fa-f]{6}$/.test(source)) {
-        const currentHex = sandSim?.getColorHex() || '#0064FF';
-        colorHex.value = currentHex;
-        colorPicker.value = currentHex;
-        return;
-      }
+  const helpOverlay = document.getElementById('help-overlay');
+  const setHelpVisible = (visible) => {
+    if (helpOverlay) helpOverlay.hidden = !visible;
+  };
+  document.getElementById('help-btn')?.addEventListener('click', () => setHelpVisible(true));
+  document.getElementById('help-close-btn')?.addEventListener('click', () => setHelpVisible(false));
+  document.getElementById('help-close-x')?.addEventListener('click', () => setHelpVisible(false));
+  helpOverlay?.addEventListener('click', (event) => {
+    if (event.target === helpOverlay) setHelpVisible(false);
+  });
 
-      const normalized = source.toUpperCase();
-      const nextHex = isPaletteLocked(paletteLock) ? snapToRetroPalette(normalized) : normalized;
-      sandSim?.setColor(nextHex);
-      colorHex.value = nextHex;
-      colorPicker.value = nextHex;
-    });
+  document.addEventListener('keydown', handleShortcuts);
+}
+
+function isHelpOpen() {
+  const overlay = document.getElementById('help-overlay');
+  return Boolean(overlay && !overlay.hidden);
+}
+
+function handleShortcuts(event) {
+  if (isHelpOpen()) {
+    if (event.key === 'Escape') {
+      document.getElementById('help-overlay').hidden = true;
+    }
+    return;
   }
 
-  if (colorPicker) {
-    colorPicker.addEventListener('change', () => {
-      applyColorBtn?.click();
-    });
+  const target = event.target;
+  const tag = target?.tagName;
+  if (tag === 'SELECT' || tag === 'TEXTAREA') return;
+  if (tag === 'INPUT' && !['radio', 'checkbox', 'range'].includes(target.type)) return;
+
+  if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z') {
+    event.preventDefault();
+    undo();
+    return;
+  }
+
+  if (event.ctrlKey || event.metaKey || event.altKey) return;
+
+  switch (event.key) {
+    case '1':
+      setToolAndSync('stick');
+      break;
+    case '2':
+      setToolAndSync('finger');
+      break;
+    case '3':
+      setToolAndSync('trowel');
+      break;
+    case '[':
+      setBrushScaleAndSync((toolManager?.getSizeScale() || 1) * 100 - 25);
+      break;
+    case ']':
+      setBrushScaleAndSync((toolManager?.getSizeScale() || 1) * 100 + 25);
+      break;
+    case 'r':
+    case 'R':
+      resetSand();
+      break;
+    case '?':
+      document.getElementById('help-overlay')?.removeAttribute('hidden');
+      break;
+    default:
+      break;
   }
 }
 
 function syncInitialUI() {
-  const colorPicker = document.getElementById('color-picker');
-  const colorHex = document.getElementById('color-hex');
   const bgSelect = document.getElementById('bg-select');
   const bgColorPicker = document.getElementById('bg-color-picker');
 
-  const currentColorHex = sandSim.getColorHex();
-  if (colorPicker) colorPicker.value = currentColorHex;
-  if (colorHex) colorHex.value = currentColorHex;
+  syncColorUI(sandSim.getColorHex());
+  updateUndoButton();
 
   if (bgSelect) bgSelect.value = currentBackgroundKey;
   if (bgColorPicker) bgColorPicker.value = backgroundColor;
 
   audioManager.setMusicVolume(0.4);
   audioManager.setSfxVolume(0.7);
-}
-
-function isPaletteLocked(paletteLockElement) {
-  return Boolean(paletteLockElement && paletteLockElement.checked);
 }
 
 function snapToRetroPalette(hex) {
@@ -346,23 +539,36 @@ function createStickCursor() {
 }
 
 function draw() {
-  background(backgroundColor);
+  background(0);
 
+  // The tint multiplies the backdrop, so white leaves it unchanged. With no
+  // backdrop image, the tint color fills the canvas directly.
   if (backgroundImage) {
+    tint(backgroundColor);
     image(backgroundImage, 0, 0, canvasWidth, canvasHeight);
+    noTint();
+  } else if (currentBackgroundKey === 'none') {
+    background(backgroundColor);
   } else if (fallbackLayer) {
+    tint(backgroundColor);
     image(fallbackLayer, 0, 0);
+    noTint();
   }
 
   if (sandSim) {
-    sandSim.update();
+    for (let i = 0; i < SIM_SUBSTEPS; i++) {
+      sandSim.update();
+    }
     sandSim.render();
   }
 }
 
 function mousePressed() {
   audioManager?.start();
-  toolManager?.start(mouseX, mouseY);
+  if (toolManager && mouseX >= 0 && mouseX < canvasWidth && mouseY >= 0 && mouseY < canvasHeight) {
+    pushUndoSnapshot();
+    toolManager.start(mouseX, mouseY);
+  }
 }
 
 function mouseDragged() {
@@ -376,7 +582,11 @@ function mouseReleased() {
 function touchStarted() {
   audioManager?.start();
   if (toolManager && touches.length > 0) {
-    toolManager.start(touches[0].x, touches[0].y);
+    const { x, y } = touches[0];
+    if (x >= 0 && x < canvasWidth && y >= 0 && y < canvasHeight) {
+      pushUndoSnapshot();
+      toolManager.start(x, y);
+    }
   }
   return false;
 }
@@ -396,6 +606,7 @@ function touchEnded() {
 window.preload = preload;
 window.setup = setup;
 window.draw = draw;
+window.windowResized = windowResized;
 window.mousePressed = mousePressed;
 window.mouseDragged = mouseDragged;
 window.mouseReleased = mouseReleased;

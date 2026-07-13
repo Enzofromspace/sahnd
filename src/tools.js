@@ -8,10 +8,23 @@ export default class ToolManager {
     this.lastX = 0;
     this.lastY = 0;
     this.lastMoveAngle = 0;
+    this.sizeScale = 1;
   }
 
   setTool(toolName) {
     this.currentTool = toolName;
+  }
+
+  setSizeScale(scale) {
+    this.sizeScale = Math.min(2.5, Math.max(0.5, scale));
+  }
+
+  getSizeScale() {
+    return this.sizeScale;
+  }
+
+  scaled(radius) {
+    return Math.max(1, radius * this.sizeScale);
   }
 
   start(x, y) {
@@ -72,7 +85,7 @@ export default class ToolManager {
     if (isStart) {
       this.audioManager.playToolSound('stick');
     }
-    this.sandSim.addSand(x, y, 2, 0.9);
+    this.sandSim.addSand(x, y, this.scaled(2), 0.9);
   }
 
   // Finger: adds material and smears nearby particles in drag direction.
@@ -80,8 +93,8 @@ export default class ToolManager {
     if (isStart) {
       this.audioManager.playToolSound('finger');
     }
-    this.sandSim.addSand(x, y, 10, 0.75);
-    this.sandSim.pushSand(x, y, 12, this.lastMoveAngle, 1.4);
+    this.sandSim.addSand(x, y, this.scaled(10), 0.75);
+    this.sandSim.pushSand(x, y, this.scaled(12), this.lastMoveAngle, 1.4);
   }
 
   // Trowel: digs and displaces sand downward.
@@ -89,7 +102,7 @@ export default class ToolManager {
     if (isStart) {
       this.audioManager.playToolSound('trowel');
     }
-    this.sandSim.removeSand(x, y, 6);
-    this.sandSim.displaceSandDown(x, y, 8);
+    this.sandSim.removeSand(x, y, this.scaled(6));
+    this.sandSim.displaceSandDown(x, y, this.scaled(8));
   }
 }

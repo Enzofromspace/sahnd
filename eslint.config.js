@@ -10,9 +10,13 @@ const p5Globals = {
   noStroke: 'readonly',
   noSmooth: 'readonly',
   pixelDensity: 'readonly',
+  createImage: 'readonly',
+  resizeCanvas: 'readonly',
   triangle: 'readonly',
   rect: 'readonly',
   image: 'readonly',
+  tint: 'readonly',
+  noTint: 'readonly',
   loadImage: 'readonly',
   saveCanvas: 'readonly',
   mouseX: 'readonly',
@@ -22,11 +26,10 @@ const p5Globals = {
 
 const audioGlobals = {
   Tone: 'readonly',
-  zzfx: 'readonly',
 };
 
 export default defineConfig([
-  globalIgnores(['dist', 'node_modules']),
+  globalIgnores(['dist', 'node_modules', 'src/vendor']),
   js.configs.recommended,
   {
     files: ['**/*.js'],
