@@ -55,8 +55,9 @@ function computeCanvasSize() {
   const containerWidth = container ? container.clientWidth : window.innerWidth - 40;
   const containerHeight = container ? container.clientHeight : window.innerHeight - 240;
 
-  canvasWidth = Math.max(400, Math.min(containerWidth - 20, 1200));
-  canvasHeight = Math.max(300, Math.min(containerHeight - 20, 800));
+  // Floors small enough that the canvas never overflows a phone screen.
+  canvasWidth = Math.max(240, Math.min(containerWidth - 20, 1200));
+  canvasHeight = Math.max(200, Math.min(containerHeight - 20, 800));
 }
 
 function setup() {
@@ -93,8 +94,15 @@ function setup() {
 function windowResized() {
   const previousGrid = sandSim ? sandSim.snapshot() : null;
   const previousSim = sandSim;
+  const previousWidth = canvasWidth;
+  const previousHeight = canvasHeight;
 
   computeCanvasSize();
+  // Mobile browsers fire resize as the address bar hides and shows while
+  // scrolling; don't rebuild the sim (and lose undo history) unless the
+  // canvas actually changed size.
+  if (canvasWidth === previousWidth && canvasHeight === previousHeight) return;
+
   resizeCanvas(canvasWidth, canvasHeight);
 
   fallbackLayer = createGraphics(canvasWidth, canvasHeight);
@@ -579,7 +587,16 @@ function mouseReleased() {
   toolManager?.end();
 }
 
-function touchStarted() {
+// Touch events target the element the touch started on. Only claim (and
+// preventDefault) touches that began on the sketch canvas; returning true
+// everywhere else keeps page scrolling and tap-to-click working on mobile.
+function isCanvasTouch(event) {
+  const canvas = document.querySelector('#canvas-container canvas');
+  return Boolean(canvas && event && event.target === canvas);
+}
+
+function touchStarted(event) {
+  if (!isCanvasTouch(event)) return true;
   audioManager?.start();
   if (toolManager && touches.length > 0) {
     const { x, y } = touches[0];
@@ -591,14 +608,16 @@ function touchStarted() {
   return false;
 }
 
-function touchMoved() {
+function touchMoved(event) {
+  if (!isCanvasTouch(event)) return true;
   if (toolManager && touches.length > 0) {
     toolManager.move(touches[0].x, touches[0].y);
   }
   return false;
 }
 
-function touchEnded() {
+function touchEnded(event) {
+  if (!isCanvasTouch(event)) return true;
   toolManager?.end();
   return false;
 }

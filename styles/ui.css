@@ -8,11 +8,13 @@ body {
   padding: 0;
   background: var(--app-bg);
   overflow: hidden;
+  -webkit-tap-highlight-color: transparent;
 }
 
 #main-window {
   width: 100vw;
   height: 100vh;
+  height: 100dvh;
   max-width: 100%;
   max-height: 100%;
   position: fixed;
@@ -25,9 +27,21 @@ body {
   display: flex;
   flex-direction: column;
   height: calc(100vh - 30px);
+  height: calc(100dvh - 30px);
   padding: 10px;
   background: #c0c0c0;
   overflow-y: auto;
+}
+
+/* Tap targets react immediately instead of waiting on double-tap zoom. */
+button,
+select,
+label,
+input[type='range'],
+input[type='color'],
+input[type='radio'],
+input[type='checkbox'] {
+  touch-action: manipulation;
 }
 
 #canvas-container {
@@ -308,6 +322,24 @@ canvas {
   display: block;
   image-rendering: pixelated;
   image-rendering: crisp-edges;
+  /* Drawing on the canvas must never scroll or zoom the page. */
+  touch-action: none;
+}
+
+/* Bigger control targets for touch screens. */
+@media (pointer: coarse) {
+  input[type='range'] {
+    min-height: 32px;
+  }
+
+  .nes-btn {
+    padding: 8px 10px;
+  }
+
+  .tool-selector label,
+  .palette-lock-row {
+    min-height: 32px;
+  }
 }
 
 @media (max-width: 1320px) {
@@ -327,9 +359,18 @@ canvas {
     overflow: auto;
   }
 
+  /* A fixed window has no scroll height on phones; let the document flow so
+     the page actually scrolls down to the panels below the canvas. */
+  #main-window {
+    position: static;
+    height: auto;
+    min-height: 100dvh;
+  }
+
   #main-window > .window-body {
     height: auto;
-    min-height: calc(100vh - 30px);
+    min-height: calc(100dvh - 30px);
+    overflow: visible;
   }
 
   .tool-panel {
@@ -337,6 +378,14 @@ canvas {
   }
 
   #canvas-container {
+    flex: none;
+    /* svh stays constant while the address bar hides/shows, so the canvas
+       isn't resized mid-scroll. */
+    height: 55svh;
     min-height: 280px;
+  }
+
+  .help-window {
+    max-height: 90dvh;
   }
 }
