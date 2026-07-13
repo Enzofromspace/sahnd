@@ -65,7 +65,6 @@ export default class AudioManager {
     this.synths = [];
     this.sequences = [];
     this.hasStarted = false;
-    this.starting = false;
 
     this.musicVolume = 0.4;
     this.sfxVolume = 0.7;
@@ -174,24 +173,26 @@ export default class AudioManager {
     this.sfxVolume = Math.min(1, Math.max(0, value));
   }
 
-  // Always unlock the AudioContext on the first gesture; only sequence
-  // playback is gated by the music toggle.
+  // Unlock the AudioContext from a user gesture; only sequence playback is
+  // gated by the music toggle. A resume attempt from a gesture the browser
+  // doesn't accept (e.g. pointerdown on Safari) leaves the context suspended
+  // with the promise pending, so never latch hasStarted until the context is
+  // actually running — later gestures retry until one succeeds.
   async start() {
-    if (typeof Tone === 'undefined') return;
-    if (this.hasStarted || this.starting) return;
+    if (typeof Tone === 'undefined' || this.hasStarted) return;
 
-    this.starting = true;
     try {
       await Tone.start();
-      this.hasStarted = true;
-      if (this.backgroundEnabled) {
-        this.startSequences();
-      }
     } catch (err) {
       // Keep app functional if browser audio context fails to start.
       console.error('Audio failed to start', err);
-    } finally {
-      this.starting = false;
+      return;
+    }
+
+    if (this.hasStarted || Tone.context.state !== 'running') return;
+    this.hasStarted = true;
+    if (this.backgroundEnabled) {
+      this.startSequences();
     }
   }
 

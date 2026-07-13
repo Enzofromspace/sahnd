@@ -86,9 +86,27 @@ function setup() {
   setupUI();
   syncInitialUI();
 
-  document.addEventListener('pointerdown', () => {
-    audioManager.start();
-  }, { once: true });
+  setupAudioUnlock();
+}
+
+// Safari (iOS and macOS) only grants audio activation on "up" gestures like
+// touchend and click, while other browsers grant it on pointerdown. Listen to
+// all of them and keep retrying until the context is actually running.
+function setupAudioUnlock() {
+  const unlockEvents = ['pointerdown', 'touchend', 'mouseup', 'click', 'keydown'];
+
+  const unlockAudio = async () => {
+    await audioManager.start();
+    if (audioManager.hasStarted) {
+      for (const eventName of unlockEvents) {
+        document.removeEventListener(eventName, unlockAudio);
+      }
+    }
+  };
+
+  for (const eventName of unlockEvents) {
+    document.addEventListener(eventName, unlockAudio, { passive: true });
+  }
 }
 
 function windowResized() {
